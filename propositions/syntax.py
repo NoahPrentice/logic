@@ -59,6 +59,7 @@ def is_binary(string: str) -> bool:
     Returns:
         ``True`` if the given string is a binary operator, ``False`` otherwise.
     """
+    # Edited for task 3.1
     return string in {'&', '|',  '->', '+', '<->', '-&', '-|'}
 
 @frozen
@@ -107,8 +108,9 @@ class Formula:
         Returns:
             The standard string representation of the current formula.
         """
-        if self.root == '~':
-            return '~' + self.first.__repr__()
+        # Task 1.1
+        if is_unary(self.root):
+            return self.root + self.first.__repr__()
         elif is_binary(self.root):
             return '(' + self.first.__repr__() + self.root + self.second.__repr__() + ')'
         else:
@@ -148,6 +150,7 @@ class Formula:
         Returns:
             A set of all variable names used in the current formula.
         """
+        # Task 1.2
         x: Set[str] = set()
         if is_unary(self.root):
             x.update(self.first.variables())
@@ -166,6 +169,7 @@ class Formula:
             A set of all operators (including ``'T'`` and ``'F'``) used in the
             current formula.
         """
+        # Task 1.3
         x: Set[str] = set()
         if is_unary(self.root):
             x.add('~')
@@ -194,6 +198,7 @@ class Formula:
             should be of ``None`` and an error message, where the error message
             is a string with some human-readable content.
         """
+        # Task 1.4, edited for task 3.1
         error: Tuple[Union[Formula, None], str] = [None, 'Unexpected symbol']
         if string == '': # To avoid index errors (looking for a first character when there is none), we have to
                          # treat the case where the string is empty seperately.
@@ -264,6 +269,7 @@ class Formula:
             ``True`` if the given string is a valid standard string
             representation of a formula, ``False`` otherwise.
         """
+        # Task 1.5
         prefix = Formula._parse_prefix(string)
         return (prefix[0] is not None and prefix[1] == '')
         
@@ -278,6 +284,7 @@ class Formula:
             A formula whose standard string representation is the given string.
         """
         assert Formula.is_formula(string)
+        # Task 1.6
         return Formula._parse_prefix(string)[0]
 
     def polish(self) -> str:
@@ -323,6 +330,7 @@ class Formula:
         """
         for variable in substitution_map:
             assert is_variable(variable)
+        # Task 3.3
         if is_variable(self.root):
             if self.root in substitution_map:
                 return substitution_map[self.root]
@@ -361,6 +369,7 @@ class Formula:
             assert is_constant(operator) or is_unary(operator) or \
                    is_binary(operator)
             assert substitution_map[operator].variables().issubset({'p', 'q'})
+        # Task 3.4
         if is_constant(self.root): 
         # If our root is a constant, check if it is mapped to something.
             if self.root in substitution_map: # If it is, replace it.

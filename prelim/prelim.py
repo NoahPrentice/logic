@@ -11,6 +11,7 @@ from __future__ import annotations
 from logic_utils import *
 
 def half(x: int) -> int:
+    # Task 0.1
     """Halves the given even integer.
 
     Parameters:

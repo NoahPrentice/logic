@@ -63,6 +63,7 @@ def evaluate(formula: Formula, model: Model) -> bool:
     """
     assert is_model(model)
     assert formula.variables().issubset(variables(model))
+    # Task 2.1, edited for Task 3.2
     if formula.root == 'T':
         return True
     elif formula.root == 'F':
@@ -106,6 +107,7 @@ def all_models(variables: Sequence[str]) -> Iterable[Model]:
     """
     for v in variables:
         assert is_variable(v)
+    # Task 2.2
     def combinations(n: int):
         if n == 1:
             falseList = [False]
@@ -145,6 +147,7 @@ def truth_values(formula: Formula, models: Iterable[Model]) -> Iterable[bool]:
         >>> list(truth_values(Formula.parse('~(p&q76)'), all_models(['p', 'q76'])))
         [True, True, True, False]
     """
+    # Task 2.3
     valueList = []
     for model in models:
         valueList.append(evaluate(formula, model))
@@ -166,6 +169,7 @@ def print_truth_table(formula: Formula) -> None:
         | T | F   | T        |
         | T | T   | F        |
     """
+    # Task 2.4
     vars = sorted(list(formula.variables()))
     formString = formula.__repr__()
     table = "|"
@@ -201,6 +205,7 @@ def is_tautology(formula: Formula) -> bool:
     Returns:
         ``True`` if the given formula is a tautology, ``False`` otherwise.
     """
+    # Task 2.5a
     vars = list(formula.variables())
     models = all_models(vars)
     if len(models) == 0:
@@ -224,6 +229,7 @@ def is_contradiction(formula: Formula) -> bool:
     Returns:
         ``True`` if the given formula is a contradiction, ``False`` otherwise.
     """
+    # Task 2.5b
     vars = list(formula.variables())
     models = all_models(vars)
     if len(models) == 0:
@@ -247,6 +253,7 @@ def is_satisfiable(formula: Formula) -> bool:
     Returns:
         ``True`` if the given formula is satisfiable, ``False`` otherwise.
     """
+    # Task 2.5c
     vars = list(formula.variables())
     models = all_models(vars)
     if len(models) == 0:
@@ -275,6 +282,7 @@ def _synthesize_for_model(model: Model) -> Formula:
     """
     assert is_model(model)
     assert len(model.keys()) > 0
+    # Task 2.6
     formulaList = []
     for var in model:
         if model[var]:
@@ -316,6 +324,7 @@ def synthesize(variables: Sequence[str], values: Iterable[bool]) -> Formula:
         False
     """
     assert len(variables) > 0
+    # Task 2.7
     models = all_models(variables)
     formList = []
     for valIndex in range(len(values)):
