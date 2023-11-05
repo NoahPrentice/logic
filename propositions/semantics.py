@@ -123,13 +123,11 @@ def all_models(variables: Sequence[str]) -> Iterable[Model]:
                 previous1[i] = [False] + previous1[i]
             return previous1 + previous2
     combinationList = combinations(len(variables))
-    modelList = []
     for combo in combinationList:
         model = dict()
         for index in range(len(combo)):
             model[variables[index]] = combo[index]
-        modelList.append(model)
-    return modelList
+        yield model
 
 def truth_values(formula: Formula, models: Iterable[Model]) -> Iterable[bool]:
     """Calculates the truth value of the given formula in each of the given
@@ -148,10 +146,8 @@ def truth_values(formula: Formula, models: Iterable[Model]) -> Iterable[bool]:
         [True, True, True, False]
     """
     # Task 2.3
-    valueList = []
     for model in models:
-        valueList.append(evaluate(formula, model))
-    return valueList
+        yield evaluate(formula, model)
 
 def print_truth_table(formula: Formula) -> None:
     """Prints the truth table of the given formula, with variable-name columns
@@ -207,7 +203,7 @@ def is_tautology(formula: Formula) -> bool:
     """
     # Task 2.5a
     vars = list(formula.variables())
-    models = all_models(vars)
+    models = list(all_models(vars))
     if len(models) == 0:
         if evaluate(formula, {'z992928478': False}):
             return True
@@ -231,7 +227,7 @@ def is_contradiction(formula: Formula) -> bool:
     """
     # Task 2.5b
     vars = list(formula.variables())
-    models = all_models(vars)
+    models = list(all_models(vars))
     if len(models) == 0:
         if evaluate(formula, {'z992928478': False}):
             return False
@@ -255,7 +251,7 @@ def is_satisfiable(formula: Formula) -> bool:
     """
     # Task 2.5c
     vars = list(formula.variables())
-    models = all_models(vars)
+    models = list(all_models(vars))
     if len(models) == 0:
         if evaluate(formula, {'z992928478': False}):
             return True
@@ -325,7 +321,7 @@ def synthesize(variables: Sequence[str], values: Iterable[bool]) -> Formula:
     """
     assert len(variables) > 0
     # Task 2.7
-    models = all_models(variables)
+    models = list(all_models(variables))
     formList = []
     for valIndex in range(len(values)):
         if values[valIndex]:
