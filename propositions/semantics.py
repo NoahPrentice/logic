@@ -339,6 +339,7 @@ def synthesize(variables: Sequence[str], values: Iterable[bool]) -> Formula:
             form = Formula('|', tempForm, formList[0])
             formList.pop(0)
         return form
+
 def _synthesize_for_all_except_model(model: Model) -> Formula:
     """Synthesizes a propositional formula in the form of a single disjunctive
     clause that evaluates to ``False`` in the given model, and to ``True`` in
@@ -354,6 +355,23 @@ def _synthesize_for_all_except_model(model: Model) -> Formula:
     assert is_model(model)
     assert len(model.keys()) > 0
     # Optional Task 2.8
+    formulaList = []
+    for var in model:
+        if model[var]:
+            formulaList.append(Formula('~', Formula(var)))
+        else:
+            formulaList.append(Formula(var))
+    if len(formulaList) == 1:
+        return formulaList[0]
+    else:
+        form = Formula('|', formulaList[0], formulaList[1])
+        formulaList.pop(0)
+        formulaList.pop(0)
+        while len(formulaList) > 0:
+            tempForm = form
+            form = Formula('|', tempForm, formulaList[0])
+            formulaList.pop()
+        return form
 
 def synthesize_cnf(variables: Sequence[str], values: Iterable[bool]) -> Formula:
     """Synthesizes a propositional formula in CNF over the given variable names,
@@ -379,6 +397,24 @@ def synthesize_cnf(variables: Sequence[str], values: Iterable[bool]) -> Formula:
     """
     assert len(variables) > 0
     # Optional Task 2.9
+    models = list(all_models(variables))
+    formList = []
+    for valIndex in range(len(values)):
+        if not values[valIndex]:
+            formList.append(_synthesize_for_all_except_model(models[valIndex]))
+    if len(formList) == 0:
+        return Formula('|', Formula(variables[0]), Formula('~', Formula(variables[0])))
+    elif len(formList) == 1:
+        return formList[0]
+    else:
+        form = Formula('&', formList[0], formList[1])
+        formList.pop(0)
+        formList.pop(0)
+        while len(formList) != 0:
+            tempForm = form
+            form = Formula('&', tempForm, formList[0])
+            formList.pop(0)
+        return form
 
 def evaluate_inference(rule: InferenceRule, model: Model) -> bool:
     """Checks if the given inference rule holds in the given model.
