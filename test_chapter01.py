@@ -38,5 +38,5 @@ test_task3(True)
 test_task4(True)
 test_task5(True)
 test_task6(True)
-#test_task7(True) # Optional
-#test_task8(True) # Optional
+test_task7(True) # Optional
+test_task8(True) # Optional

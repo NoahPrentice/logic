@@ -294,6 +294,12 @@ class Formula:
             The polish notation representation of the current formula.
         """
         # Optional Task 1.7
+        if is_unary(self.root):
+            return self.root + self.first.polish()
+        elif is_binary(self.root):
+            return self.root + self.first.polish() + self.second.polish()
+        else:
+            return self.root
 
     @staticmethod
     def parse_polish(string: str) -> Formula:
@@ -306,6 +312,47 @@ class Formula:
             A formula whose polish notation representation is the given string.
         """
         # Optional Task 1.8
+        assert len(string) > 0
+        def const_variable_parse(string: str) -> Tuple[Union[str, None], str]: # This function tests if our string starts with a variable or constant.
+            if is_variable(string[0]) or is_constant(string[0]):               # If our first character is a variable, we need to find the whole variable.
+                if len(string) == 1:                                           # If the whole string is a single-letter variable, we're done.
+                    return [string, '']
+                else:
+                    variable = string[0]
+                    rest = string[1:]                                                   # and say the rest is everything else.
+                    for i in range(1, len(string)):                                     # Then we look to see if the first letter is the prefix of another variable.
+                        if is_variable(string[:i + 1]) or is_constant(string[:i + 1]):  # If it really is the prefix of another variable,
+                            variable = string[:i + 1]                                   # we change our formula to reflect that,
+                            rest = string[i + 1:]                                       # and we say the rest is everything past it.
+                    return [variable, rest]
+            else:
+                return [None, string]
+            
+        def polish_prefix(string: str) -> Tuple[Union[Formula, None], str]:
+            variable, rest = const_variable_parse(string)
+            if variable is not None:
+                return [Formula(variable), rest]
+            elif is_unary(string[0]):
+                object, rest = polish_prefix(string[1:])
+                return [Formula(string[0], object), rest]
+            elif is_binary(string[0]):
+                left, rest = polish_prefix(string[1:])
+                right, rest = polish_prefix(rest)
+                return [Formula(string[0], left, right), rest]
+            elif is_binary(string[:2]):
+                left, rest = polish_prefix(string[1:])
+                right, rest = polish_prefix(rest)
+                return [Formula(string[:2], left, right), rest]
+            elif is_binary(string[:3]):
+                left, rest = polish_prefix(string[1:])
+                right, rest = polish_prefix(rest)
+                return [Formula(string[:3], left, right), rest]
+            else:
+                return [None, 'Error.']
+        
+        formula, suffix = polish_prefix(string)
+        if suffix == '':
+            return formula
 
     def substitute_variables(self, substitution_map: Mapping[str, Formula]) -> \
             Formula:
