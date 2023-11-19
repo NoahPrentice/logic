@@ -386,7 +386,6 @@ class Formula:
         elif is_binary(self.root):
             return Formula(self.root, self.first.substitute_variables(substitution_map), self.second.substitute_variables(substitution_map))
         return self
-        
 
     def substitute_operators(self, substitution_map: Mapping[str, Formula]) -> \
             Formula:

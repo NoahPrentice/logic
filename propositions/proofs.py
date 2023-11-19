@@ -89,6 +89,12 @@ class InferenceRule:
             conclusion of the current inference rule.
         """
         # Task 4.1
+        variables = set()
+        for assumption in self.assumptions:
+            variables.update(assumption.variables())
+        variables.update(self.conclusion.variables())
+        return variables
+
 
     def specialize(self, specialization_map: SpecializationMap) -> \
             InferenceRule:
@@ -106,6 +112,10 @@ class InferenceRule:
         for variable in specialization_map:
             assert is_variable(variable)
         # Task 4.4
+        assumptions = []
+        for assumption in self.assumptions:
+            assumptions.append(assumption.substitute_variables(specialization_map))
+        return InferenceRule(assumptions, self.conclusion.substitute_variables(specialization_map))
 
     @staticmethod
     def _merge_specialization_maps(
@@ -132,7 +142,18 @@ class InferenceRule:
             for variable in specialization_map2:
                 assert is_variable(variable)
         # Task 4.5a
-        
+        if specialization_map1 is None or specialization_map2 is None:
+            return None
+        merged_map = dict()
+        for variable in specialization_map1:
+            if variable in specialization_map2:
+                if specialization_map1[variable] != specialization_map2[variable]:
+                    return None
+            else:
+                merged_map.update({variable: specialization_map1[variable]})
+        for variable in specialization_map2:
+            merged_map.update({variable: specialization_map2[variable]})
+        return merged_map
     @staticmethod
     def _formula_specialization_map(general: Formula, specialization: Formula) \
             -> Union[SpecializationMap, None]:
@@ -148,6 +169,20 @@ class InferenceRule:
             in fact not a specialization of `general`.
         """
         # Task 4.5b
+        if is_constant(general.root):
+            if general.root == specialization.root:
+                return dict()
+            else:
+                return None
+        elif is_variable(general.root):
+            return {general.root: specialization}
+        elif general.root != specialization.root:
+            return None
+        elif is_unary(general.root):
+            return InferenceRule._formula_specialization_map(general.first, specialization.first)
+        else:
+            return InferenceRule._merge_specialization_maps(InferenceRule._formula_specialization_map(general.first, specialization.first),
+                                                            InferenceRule._formula_specialization_map(general.second, specialization.second))
 
     def specialization_map(self, specialization: InferenceRule) -> \
             Union[SpecializationMap, None]:
@@ -162,6 +197,21 @@ class InferenceRule:
             in fact not a specialization of the current rule.
         """
         # Task 4.5c
+        mapList = []
+        if len(self.assumptions) != len(specialization.assumptions): # To avoid index errors, I have to make sure both inference rules
+                                                                     # have the same assumptions.
+            return None
+        for i in range(len(self.assumptions)):
+            mapList.append(InferenceRule._formula_specialization_map(self.assumptions[i], specialization.assumptions[i]))
+        mapList.append(InferenceRule._formula_specialization_map(self.conclusion, specialization.conclusion))
+        if len(mapList) == 1: # To avoid index errors, I check if there's only 1 map (if there were 0 assumptions)
+            return mapList[0]
+        else:
+            finalMap = InferenceRule._merge_specialization_maps(mapList.pop(0), mapList.pop(0))
+            while len(mapList) != 0:
+                finalMap = InferenceRule._merge_specialization_maps(finalMap, mapList.pop(0))
+            return finalMap
+
 
     def is_specialization_of(self, general: InferenceRule) -> bool:
         """Checks if the current inference rule is a specialization of the given
@@ -315,6 +365,18 @@ class Proof:
         """
         assert line_number < len(self.lines)
         # Task 4.6a
+        if self.lines[line_number].rule is None: # If the line is justified as an assumption, we return None.
+            return None
+        assumptions = [] # Otherwise, we find all the assumptions of the rule by looping through the lines mentioned.
+
+        # Because self is a proof object, we need to point to its list of lines, specify which line we're talking about, and make sure we talk
+        # about the assumptions of the given line number. This "assumptions" property is a list of indices for other line numbers, not the
+        # line or its formula itself. Making sure to add neither the index, nor the line itself, but only the formula of the line, took me ages.
+        
+        for assumptionNumber in self.lines[line_number].assumptions: 
+            assumptions.append(self.lines[assumptionNumber].formula)
+            
+        return InferenceRule(assumptions, self.lines[line_number].formula) # Then we just list the assumptions and the conclusion
 
     def is_line_valid(self, line_number: int) -> bool:
         """Checks if the specified line validly follows from its justifications.
@@ -340,6 +402,35 @@ class Proof:
         """
         assert line_number < len(self.lines)
         # Task 4.6b
+        line = self.lines[line_number]
+        if line.rule is None: # If the line is not justified by any rule, we check if it's an assumption.
+            return line.formula in self.statement.assumptions
+        else:
+            is_specialization = False # If the line is justified by a rule, we try to find a potential allowed rule that specializes to it.
+            for allowedRule in self.rules:
+                if line.rule == allowedRule:
+                    generalRule = allowedRule # If we find one, we note which rule it is and tell python we've found a potential specialization.
+                    is_specialization = True
+                    break
+            if not is_specialization: # If we didn't find a potential specialization, we know the line is not valid.
+                return False
+            else: # If we found a potential specialization, we first need to make sure it actually specializes to the rule used.
+                specificRule = self.rule_for_line(line_number)
+                specializationMap = generalRule.specialization_map(specificRule)
+                if specializationMap is None: # If it doesn't specialize to the rule used, the line is not valid.
+                    return False
+                else: # Otherwise, we have a genuine specialization.
+                    specialization = generalRule.specialize(specializationMap)
+                    if specialization.conclusion != line.formula: # For condition 1, we just check if the conclusion of the specialization is as needed.
+                        return False
+                    else: # For condition 2, we check to make sure the assumptions are the same and in the correct order
+                        for i in range(len(specialization.assumptions)):
+                            if specialization.assumptions[i] != self.lines[line.assumptions[i]].formula:
+                                return False
+                        for i in line.assumptions: # We then add in a final check to make sure we're not using a rule on later line.
+                            if i >= line_number:
+                                return False
+        return True
         
     def is_valid(self) -> bool:
         """Checks if the current proof is a valid proof of its claimed statement
@@ -350,6 +441,14 @@ class Proof:
             statement via its inference rules, ``False`` otherwise.
         """
         # Task 4.6c
+        if len(self.lines) == 0:
+            return False
+        elif self.statement.conclusion != self.lines[-1].formula:
+            return False
+        for i in range(len(self.lines)):
+            if not self.is_line_valid(i):
+                return False
+        return True
 
 def prove_specialization(proof: Proof, specialization: InferenceRule) -> Proof:
     """Converts the given proof of an inference rule to a proof of the given

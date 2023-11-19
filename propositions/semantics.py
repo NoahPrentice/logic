@@ -438,6 +438,12 @@ def evaluate_inference(rule: InferenceRule, model: Model) -> bool:
     """
     assert is_model(model)
     # Task 4.2
+    assumptionsHold = True
+    for assumption in rule.assumptions:
+        if evaluate(assumption, model) == False:
+            assumptionsHold = False
+            break
+    return not assumptionsHold or evaluate(rule.conclusion, model)
 
 def is_sound_inference(rule: InferenceRule) -> bool:
     """Checks if the given inference rule is sound, i.e., whether its
@@ -450,5 +456,8 @@ def is_sound_inference(rule: InferenceRule) -> bool:
         ``True`` if the given inference rule is sound, ``False`` otherwise.
     """
     # Task 4.3
-
-print(is_tautology(Formula('F')))
+    models = list(all_models(list(rule.variables())))
+    for model in models:
+        if not evaluate_inference(rule, model):
+            return False
+    return True
