@@ -31,6 +31,15 @@ def rule_nonsoundness_from_specialization_nonsoundness(
     assert not evaluate_inference(specialization, model)
     # Task 4.9
 
+    # I start by figuring out what each variable in the general rule was replaced with. I need the map for that.
+    specializationMap = general.specialization_map(specialization)
+    generalModel = dict()
+    # I then construct the model for the general rule. I do this by making the truth value of each variable
+    # the same as the truth value of its output from the map.
+    for variable in general.variables():
+        generalModel[variable] = evaluate(specializationMap[variable], model)
+    return generalModel
+
 def nonsound_rule_of_nonsound_proof(proof: Proof, model: Model) -> \
         Tuple[InferenceRule, Model]:
     """Finds a non-sound inference rule used by the given valid proof of a
@@ -49,3 +58,10 @@ def nonsound_rule_of_nonsound_proof(proof: Proof, model: Model) -> \
     assert proof.is_valid()
     assert not evaluate_inference(proof.statement, model)
     # Task 4.10
+    
+    # As the textbook explains, the first line that is false is our culprit for a nonsound rule.
+    for lineNumber in range(len(proof.lines)):
+        line = proof.lines[lineNumber]
+        if not evaluate(line.formula, model):
+            # Once we've found that line, we just return the rule and the model that makes the rule nonsound.
+            return [line.rule, rule_nonsoundness_from_specialization_nonsoundness(line.rule, proof.rule_for_line(lineNumber), model)]
