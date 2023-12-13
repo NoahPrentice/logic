@@ -466,7 +466,6 @@ def prove_specialization(proof: Proof, specialization: InferenceRule) -> Proof:
     assert specialization.is_specialization_of(proof.statement)
     # Task 5.1
     map = proof.statement.specialization_map(specialization)
-    # lines = [Proof.Line(line.formula.substitute_variables(map), line.rule, line.assumptions) for line in proof.lines]
     lines = []
     for line in proof.lines:
         if hasattr(line, 'assumptions'):
@@ -504,6 +503,89 @@ def _inline_proof_once(main_proof: Proof, line_number: int,
     assert main_proof.lines[line_number].rule == lemma_proof.statement
     assert lemma_proof.is_valid()
     # Task 5.2a
+
+    # --- 1. Adding the Lemma's Lines ---
+
+    line = main_proof.lines[line_number]
+    # We start by figuring out the new lines needed to replace the Lemma line.
+    # We'll need a proof specialization for this. We start by figuring out what the map is
+    # that takes our Lemma in general form to the specialization of the Lemma in the line.
+    # For this, we need to use the formula version since we only have a line (formula 
+    # instead of inference rule) to compare to. 
+    specilizationMap = InferenceRule._formula_specialization_map(lemma_proof.statement.conclusion, line.formula)
+    # Then we can specialize our Lemma's proof.
+    specialized_proof = prove_specialization(lemma_proof, lemma_proof.statement.specialize(specilizationMap))
+    # Now when we put everything together we just need the line number indices to work out.
+    # We can start by adding the lines not affected by the change.
+    newLines = [main_proof.lines[i] for i in range(line_number)]
+
+    # Now we add the new lines, but we want to keep track of how many lines went unaffected.
+    numberOfUnaffectedLines = len(newLines)
+
+    # Let's go ahead and jump into the main loop, adding lines from the Lemma's proof.
+    for specializedProofLineNumber in range(len(specialized_proof.lines)):
+        specializedProofLine = specialized_proof.lines[specializedProofLineNumber]
+        # If a line in the Lemma proof had no rule, then it was an assumption of the Lemma.
+        # This means one of our previous lines will be that assumption, so we want to
+        # reference it instead of adding it with no rule at all. 
+        if specializedProofLine.rule is not None:
+            # Now we have a line that references other lines in the Lemma proof. So we need
+            # to find where in the proof we stated the formula that we're looking for.
+            newAssumptions = []
+            # We go through our line's assumptions one at a time.
+            for assumption in specializedProofLine.assumptions:
+                # And look through each previous line
+                for previousLineNumber in range(len(newLines)):
+                    previousLine = newLines[previousLineNumber]
+                    # to check if it has the right formula.
+                    if previousLine.formula == specialized_proof.lines[assumption].formula:
+                        # If it does, we can reference it and stop looking.
+                        newAssumptions.append(previousLineNumber)
+                        break
+            # Once all of a line's assumptions have been changed, we can add it.
+            newLines.append(Proof.Line(specializedProofLine.formula, specializedProofLine.rule, newAssumptions))
+    
+    # --- 2. Adding the Remaining Lines ---
+
+    # Now we do the same thing, but with the old lines that came after the Lemma line.
+    # We could take the same approach as in (1), where we loop through every previous line
+    # to look for the right formula. For the sake of efficiency, however, we can utilize
+    # the fact that a rule either was unaffected or was merely shifted in its line number
+    # by the number of added lines. In fact, I tried to do this for the main loop in (1), but
+    # ran into issues. 
+    
+    indexShift = len(newLines) - numberOfUnaffectedLines - 1
+
+    for oldLineNumber in range(line_number + 1, len(main_proof.lines)):
+        oldLine = main_proof.lines[oldLineNumber]
+        if oldLine.rule is None:
+            newLines.append(oldLine)
+        else:
+            newAssumptions = []
+            for assumption in oldLine.assumptions:
+                # We check if our assumption index was affected
+                # (we get >= instead of > because of 0-index)
+                if assumption >= numberOfUnaffectedLines: 
+                    # If our assumption was affected, we shift it up.
+                    newAssumptions.append(assumption + indexShift)
+                else: 
+                    # Otherwise, it stays the same.
+                    newAssumptions.append(assumption)
+            newLines.append(Proof.Line(oldLine.formula, oldLine.rule, newAssumptions))
+    
+    # Now, the lines are ready for our new proof.
+
+    # --- 3. Finishing Up ---
+
+    # We end by updating the rules of our new proof.
+    # As explained in the textbook, we need the same rules as the main proof and Lemma proof.
+    newRules = [rule for rule in main_proof.rules]
+    # Then we can add the Lemma's rules
+    for rule in lemma_proof.rules:
+        newRules.append(rule)
+    
+    # And now the rules are ready for our new proof! We just have to put it all together.
+    return Proof(main_proof.statement, newRules, newLines)
 
 def inline_proof(main_proof: Proof, lemma_proof: Proof) -> Proof:
     """Inlines the given proof of a "lemma" inference rule into the given proof
