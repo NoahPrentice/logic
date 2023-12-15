@@ -608,3 +608,29 @@ def inline_proof(main_proof: Proof, lemma_proof: Proof) -> Proof:
     assert main_proof.is_valid()
     assert lemma_proof.is_valid()
     # Task 5.2b
+    
+    # First we figure out how many times we use the Lemma.
+    lemma_use_count = 0
+    for line_number in range(len(main_proof.lines)):
+        if main_proof.lines[line_number].rule == lemma_proof.statement:
+            lemma_use_count += 1
+    # Then we start building our new proof. I do this one use of the Lemma at a time,
+    # storing the progress in the return_proof variable.
+    return_proof = main_proof
+
+    # We'll go through the proof one use of the lemma at a time, replacing that line, and
+    # then doing it again. A while loop works well in this context. 
+    while lemma_use_count > 0:
+        for line_number in range(len(return_proof.lines)):
+            if return_proof.lines[line_number].rule == lemma_proof.statement:
+                # If we find a line that uses the lemma, we replace it, updating our return_proof,
+                # and then we start over. This is to avoid the potential problem of changing our object
+                # while we're in the process of looping through it.
+                return_proof = _inline_proof_once(return_proof, line_number, lemma_proof)
+                break
+        # Then we tell Python we've removed one use of the Lemma, and restart the while loop if need-be.
+        lemma_use_count += -1
+    # At the end, we just have to fix the rules being used.
+    return_proof_rules = set(main_proof.rules).union(set(lemma_proof.rules))
+    return_proof_rules.remove(lemma_proof.statement)
+    return Proof(return_proof.statement, return_proof_rules, return_proof.lines)
