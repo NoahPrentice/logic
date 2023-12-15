@@ -35,6 +35,28 @@ def prove_corollary(antecedent_proof: Proof, consequent: Formula,
                          Formula('->', antecedent_proof.statement.conclusion,
                                  consequent)).is_specialization_of(conditional)
     # Task 5.3a
+    # Copy the proof of the antecedent.
+    consequent_proof_lines = list(antecedent_proof.lines)
+    # Then add the instantiated conditional we need. No assumptions required.
+    consequent_proof_lines.append(Proof.Line(Formula('->', antecedent_proof.statement.conclusion,
+                                 consequent), conditional, []))
+    # Now I find which line states the antecedent. Presumably it's the last line, but let's be safe.
+    antecedent_line_number = -1
+    for line_number in range(len(consequent_proof_lines)):
+        if consequent_proof_lines[line_number].formula == antecedent_proof.statement.conclusion:
+            antecedent_line_number = line_number
+            break
+    # Then we add a line to our proof concluding our consequent using modus ponens. The two assumptions are
+    # the antecedent and the instantiated conditional.
+    consequent_proof_lines.append(Proof.Line(consequent, MP, [antecedent_line_number, len(consequent_proof_lines)-1]))
+
+    # Now we construct our returned proof:
+    # (1) Our statement has the same assumptions as the antecedent proof, but it concludes the consequent.
+    # (2) Our allowed rules are the antecedent proof's rules, plus modus ponens and the conditional.
+    # (3) The lines of the proof are the ones constructed above.
+    return Proof(InferenceRule(antecedent_proof.statement.assumptions, consequent),
+                    set(antecedent_proof.rules).union({conditional, MP}),
+                    consequent_proof_lines)
 
 def combine_proofs(antecedent1_proof: Proof, antecedent2_proof: Proof,
                    consequent: Formula, double_conditional: InferenceRule) -> \
