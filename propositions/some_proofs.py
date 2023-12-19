@@ -76,6 +76,16 @@ def prove_hypothetical_syllogism() -> Proof:
         `~propositions.axiomatic_systems.D`.
     """
     # Task 5.5
+    # By the Deduction Theorem, we can prove HS by instead taking our assumptions, adding p, and proving r.
+    Statement = InferenceRule([Formula.parse('(p->q)'), Formula.parse('(q->r)'), Formula('p')], Formula('r'))
+    Rules = [MP, I0, I1, D]
+    Lines = [Proof.Line(Formula('p')),
+             Proof.Line(Formula.parse('(p->q)')),
+             Proof.Line(Formula('q'), MP, [0, 1]),
+             Proof.Line(Formula.parse('(q->r)')),
+             Proof.Line(Formula('r'), MP, [2, 3])]
+    proof = Proof(Statement, Rules, Lines)
+    return remove_assumption(proof)
 
 def prove_I2() -> Proof:
     """Proves `~propositions.axiomatic_systems.I2` via
