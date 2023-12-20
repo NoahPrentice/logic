@@ -191,9 +191,9 @@ def test_prove_from_encoding(debug=True):
             
 def test_remove_assumption(debug=False):
     from propositions.some_proofs import prove_and_commutativity
-    # DISJUNCTION_COMMUTATIVITY_PROOF, prove_and_commutativity(),
     for oldp in [
-                 
+                 DISJUNCTION_COMMUTATIVITY_PROOF,
+                 prove_and_commutativity(),
                  DISJUNCTION_RIGHT_ASSOCIATIVITY_PROOF,
                  DISJUNCTION_ROTATION_PROOF,
                  TRI_AND_PROOF]:

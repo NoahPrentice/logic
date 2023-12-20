@@ -508,13 +508,8 @@ def _inline_proof_once(main_proof: Proof, line_number: int,
 
     line = main_proof.lines[line_number]
     # We start by figuring out the new lines needed to replace the Lemma line.
-    # We'll need a proof specialization for this. We start by figuring out what the map is
-    # that takes our Lemma in general form to the specialization of the Lemma in the line.
-    # For this, we need to use the formula version since we only have a line (formula 
-    # instead of inference rule) to compare to. 
-    specilizationMap = InferenceRule._formula_specialization_map(lemma_proof.statement.conclusion, line.formula)
-    # Then we can specialize our Lemma's proof.
-    specialized_proof = prove_specialization(lemma_proof, lemma_proof.statement.specialize(specilizationMap))
+    # We'll need a proof specialization for this.
+    specialized_proof = prove_specialization(lemma_proof, main_proof.rule_for_line(line_number))
     # Now when we put everything together we just need the line number indices to work out.
     # We can start by adding the lines not affected by the change.
     newLines = [main_proof.lines[i] for i in range(line_number)]
