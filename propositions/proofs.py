@@ -505,8 +505,6 @@ def _inline_proof_once(main_proof: Proof, line_number: int,
     # Task 5.2a
 
     # --- 1. Adding the Lemma's Lines ---
-
-    line = main_proof.lines[line_number]
     # We start by figuring out the new lines needed to replace the Lemma line.
     # We'll need a proof specialization for this.
     specialized_proof = prove_specialization(lemma_proof, main_proof.rule_for_line(line_number))
