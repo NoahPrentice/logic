@@ -91,34 +91,17 @@ def prove_in_model(formula: Formula, model:Model) -> Proof:
     # Code follows the approach outlined on p. 87.
 
     # Case 1 (base case): formula = x or ~x.
-    if formula.first.is_variable:
-        statement = InferenceRule(formulas_capturing_model(model), formula)
-        lines = [Proof.Line(formula)]
-        return Proof(statement, AXIOMATIC_SYSTEM, lines)
-    elif formula.first == '~':
-        if formula.second.is_variable:
+    if is_variable(formula.root):
+        if evaluate(formula, model):
             statement = InferenceRule(formulas_capturing_model(model), formula)
             lines = [Proof.Line(formula)]
             return Proof(statement, AXIOMATIC_SYSTEM, lines)
-        # Case 3: The main operator is ~ but its operand is not a variable.
         else:
-            # If the formula is of the form ~P for some non-variable formula P,
-            # we check if it evaluates to true or false.
-            if evaluate(formula, model):
-                # If it evaluates to true, then P evaluates to false. So we
-                # recursively prove ~P.
-                return prove_in_model(formula.first, model)
-            else:
-                # If, however, the formula evaluates to false, then P evaluates
-                # to true, so we prove P and then use double-negation.
-                proof = prove_in_model(formula.first, model)
-                statement = InferenceRule(proof.statement.assumptions, formula)
-                lines = list(proof.lines)
-                addedLines = [Proof.Line(NN.conclusion.substitute_variables({'p':formula.first}), NN, []),
-                              Proof.Line(formula, MP, [len(lines)-1, len(lines)])]
-                return Proof(statement, AXIOMATIC_SYSTEM, lines.extend(addedLines))
+            statement = InferenceRule(formulas_capturing_model(model), Formula('~', formula))
+            lines = [Proof.Line(Formula('~', formula))]
+            return Proof(statement, AXIOMATIC_SYSTEM, lines)
     # Case 2: The main operator is ->.
-    else:
+    elif formula.root == '->':
         # In this case, we again check if our formula evaluates to true or false.
         if evaluate(formula, model):
             # If it evaluates to true, then we check if the antecedent is false
@@ -126,27 +109,29 @@ def prove_in_model(formula: Formula, model:Model) -> Proof:
             if not evaluate(formula.first, model):
                 # If the antecedent is false, we prove its negation recursively
                 # and use I2.
-                proof = prove_in_model(formula.first, model)
-                statement = InferenceRule(proof.statement.assumptions, formula)
-                lines = list(proof.lines)
-                addedLines = [Proof.Line(I2.conclusion.substitute_variables({'p':formula.first, 'q': formula.second}), I2, []),
-                              Proof.Line(formula, MP, [len(lines)-1, len(lines)])]
-                return Proof(statement, AXIOMATIC_SYSTEM, lines.extend(addedLines))
+                return prove_corollary(prove_in_model(formula.first, model), formula, I2)
             else:
                 # If the antecedent is true, the consequent is true. So we recursively
                 # prove the consequent and use I1.
-                proof = prove_in_model(formula.second, model)
-                statement = InferenceRule(proof.statement.assumptions, formula)
-                lines = list(proof.lines)
-                addedLines = [Proof.Line(I1.conclusion.substitute_variables({'p':formula.first,'q':formula.second}), I1, []),
-                              Proof.Line(formula, MP, [len(lines)-1, len(lines)])]
-                return Proof(statement, AXIOMATIC_SYSTEM, lines.extend(addedLines))
+                return prove_corollary(prove_in_model(formula.second, model), formula, I1)
         else:
             # If our formula evaluates to false, then we recursively prove the antecedent
             # and the negation of the consequent.
             antecedentProof = prove_in_model(formula.first, model)
             consequentProof = prove_in_model(formula.second, model)
-            return combine_proofs(antecedentProof, consequentProof, formula, NI)
+            return combine_proofs(antecedentProof, consequentProof, Formula('~', formula), NI)
+    # Case 3: The main operator is ~.
+    else:
+        # If the formula is of the form ~P,
+        # we check if it evaluates to true or false.
+        if evaluate(formula, model):
+            # If it evaluates to true, then P evaluates to false. So we
+            # recursively prove ~P.
+            return prove_in_model(formula.first, model)
+        else:
+            # If, however, the formula evaluates to false, then P evaluates
+            # to true, so we prove P and then use double-negation.
+            return prove_corollary(prove_in_model(formula.first, model), Formula('~', formula), NN)
 
 def reduce_assumption(proof_from_affirmation: Proof,
                       proof_from_negation: Proof) -> Proof:
