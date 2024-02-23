@@ -176,6 +176,18 @@ def reduce_assumption(proof_from_affirmation: Proof,
            proof_from_negation.statement.assumptions[-1]
     assert proof_from_affirmation.rules == proof_from_negation.rules
     # Task 6.2
+    # Game plan: let A be the assumption set without the last assumption, and let p be the remaining
+    # assumption in proof_from_affirmation (so ~p is the remaining assumption in proof_from_negation).
+    # Then let c be the conclusion of the proof. Proof_from_affirmation proves c from A u {p}, so the
+    # Deduction Theorem will give us a proof of (p->c) from A. Likewise, we get a proof of (~p->c)
+    # from the same set A using proof_from negation. Then the rule R with q = p and p = c will let us
+    # use combine_proofs to put them together.
+    affirmation_implies_conclusion = remove_assumption(proof_from_affirmation)
+    negation_implies_conclusion = remove_assumption(proof_from_negation)
+    return combine_proofs(affirmation_implies_conclusion, # Proof from affirmation
+                          negation_implies_conclusion, # Proof from negation
+                          proof_from_affirmation.statement.conclusion, # The formula to prove
+                          R)
 
 def prove_tautology(tautology: Formula, model: Model = frozendict()) -> Proof:
     """Proves the given tautology from the formulas that capture the given
