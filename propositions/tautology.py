@@ -233,6 +233,35 @@ def prove_tautology(tautology: Formula, model: Model = frozendict()) -> Proof:
     assert is_model(model)
     assert sorted(tautology.variables())[:len(model)] == sorted(model.keys())
     # Task 6.3a
+    # Check if the model uses all of the tautology's variables
+    modelUsesAllTautologyVariables = True
+    for variable in tautology.variables():
+        if variable not in model.keys():
+            modelUsesAllTautologyVariables = False
+            break
+    if modelUsesAllTautologyVariables: # If it does, then we use prove_in_model.
+        return prove_in_model(tautology, model)
+    else: # Otherwise, we construct a proof with one additional variable.
+        # Start by adding all of the model's current variables to two new models.
+        affirmation_model = dict()
+        negation_model = dict()
+        for key in model.keys():
+            affirmation_model[key] = model[key]
+            negation_model[key] = model[key]
+
+        # Then we add the next variable, True in one model but False in the other.
+        tautologyVariables = sorted(tautology.variables())
+        nextVariable = tautologyVariables[len(model)]
+        affirmation_model[nextVariable] = True
+        negation_model[nextVariable] = False
+
+        # Prove the tautology from each of those.
+        affirmation_proof = prove_tautology(tautology, affirmation_model)
+        negation_proof = prove_tautology(tautology, negation_model)
+
+        # Use reduce_assumption and you're done.
+        return reduce_assumption(affirmation_proof, negation_proof)
+
 
 def proof_or_counterexample(formula: Formula) -> Union[Proof, Model]:
     """Either proves the given formula or finds a model in which it does not
