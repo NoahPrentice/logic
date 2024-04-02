@@ -362,6 +362,32 @@ def model_or_inconsistency(formulas: Sequence[Formula]) -> Union[Model, Proof]:
     for formula in formulas:
         assert formula.operators().issubset({'->', '~'})
     # Task 6.5
+    # First, we'll conjoin all of the formulas together, both to get all of the
+    # variables used, and to check if they all evaluate to true in some model.
+    formulas_list = list(formulas)
+
+    # Conjoining the formulas
+    conjoined_formula = formulas_list[0]
+    for i in range(1, len(formulas_list)):
+        conjoined_formula = Formula('&', formulas_list[i], conjoined_formula)
+    
+    # Finding all the variables and models
+    all_variables = list(conjoined_formula.variables())
+    models = list(all_models(all_variables))
+
+    # Testing the models
+    model_exists = False
+    the_model = {}
+    for model in models:
+        if evaluate(conjoined_formula, model):
+            model_exists = True
+            the_model = model
+            break
+    if model_exists: # If a model exists, we return it.
+        return the_model
+    else: # Otherwise, we prove ~(p->p) from the formulas.
+        rule = InferenceRule(formulas, Formula('~', Formula('->', Formula('p'), Formula('p'))))
+        return prove_sound_inference(rule)
 
 def prove_in_model_full(formula: Formula, model: Model) -> Proof:
     """Either proves the given formula or proves its negation, from the formulas
