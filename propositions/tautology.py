@@ -329,6 +329,22 @@ def prove_sound_inference(rule: InferenceRule) -> Proof:
     for formula in {rule.conclusion}.union(rule.assumptions):
         assert formula.operators().issubset({'->', '~'})
     # Task 6.4b
+    tautology_proof = prove_tautology(encode_as_formula(rule))
+    statement = rule
+    rules = AXIOMATIC_SYSTEM
+    lines = list(tautology_proof.lines)
+    # If the rule had no assumptions, we're done.
+    if len(rule.assumptions) == 0:
+        return Proof(statement, rules, lines)
+    # Otherwise, we deal with the assumptions, which we do through a loop. At each
+    # step in the loop, the last line of the proof is (A_i -> [...]) where A_i is the
+    # next assumption to be removed. So, we instantiate that assumption and then use
+    # MP to remove it.
+    for i in range(len(rule.assumptions)):
+        lines.append(Proof.Line(rule.assumptions[i])) # Instantiate the next assumption
+        nextFormula = lines[-2].formula.second # The next line will remove the assumption
+        lines.append(Proof.Line(nextFormula, MP, [len(lines)-1, len(lines)-2])) # Add it.
+    return Proof(statement, rules, lines)
 
 def model_or_inconsistency(formulas: Sequence[Formula]) -> Union[Model, Proof]:
     """Either finds a model in which all the given formulas hold, or proves
