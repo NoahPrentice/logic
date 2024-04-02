@@ -308,6 +308,11 @@ def encode_as_formula(rule: InferenceRule) -> Formula:
         q
     """
     # Task 6.4a
+    # We work backwards through the assumptions, making each one the antecedent of the next implication.
+    current_formula = rule.conclusion
+    for i in range(len(rule.assumptions)):
+        current_formula = Formula('->', rule.assumptions[-i - 1], current_formula)
+    return current_formula
 
 def prove_sound_inference(rule: InferenceRule) -> Proof:
     """Proves the given sound inference rule.
