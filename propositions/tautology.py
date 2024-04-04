@@ -386,7 +386,7 @@ def model_or_inconsistency(formulas: Sequence[Formula]) -> Union[Model, Proof]:
     if model_exists: # If a model exists, we return it.
         return the_model
     else: # Otherwise, we prove ~(p->p) from the formulas.
-        rule = InferenceRule(formulas, Formula('~', Formula('->', Formula('p'), Formula('p'))))
+        rule = InferenceRule(formulas, Formula.parse("~(p->p)"))
         return prove_sound_inference(rule)
 
 def prove_in_model_full(formula: Formula, model: Model) -> Proof:
