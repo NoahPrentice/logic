@@ -114,6 +114,25 @@ class Term:
             The standard string representation of the current term.
         """
         # Task 7.1
+        
+        # If there are no arguments, it is a constant or variable which we can return.
+        if not hasattr(self, 'arguments'):
+            return self.root
+        else:
+            # Otherwise, we need to include the function name and all of its arguments.
+            rep = self.root # The function name.
+            rep += '('
+            for i in range(len(self.arguments)):
+                if i != len(self.arguments) - 1:
+                    # Any arguments that aren't the last one get turned into strings
+                    # and then we add a comma.
+                    rep += str(self.arguments[i])
+                    rep += ','
+                else:
+                    # The last argument doesn't get a comma at the end, but a parenthesis.
+                    rep += str(self.arguments[i])
+                    rep += ')'
+            return rep
 
     def __eq__(self, other: object) -> bool:
         """Compares the current term with the given one.
@@ -381,6 +400,29 @@ class Formula:
             The standard string representation of the current formula.
         """
         # Task 7.2
+        if is_equality(self.root):
+            left = str(self.arguments[0])
+            right = str(self.arguments[1])
+            return left + '=' + right
+        elif is_relation(self.root):
+            rep = self.root
+            rep += '('
+            for i in range(len(self.arguments)):
+                if i != len(self.arguments) - 1:
+                    rep += str(self.arguments[i])
+                    rep += ','
+                else:
+                    rep += str(self.arguments[i])
+            rep += ')'
+            return rep
+        elif is_unary(self.root):
+            return '~' + str(self.first)
+        elif is_binary(self.root):
+            first = str(self.first)
+            second = str(self.second)
+            return '(' + first + self.root + second + ')'
+        else:
+            return self.root + self.variable + '[' + str(self.statement) + ']'
 
     def __eq__(self, other: object) -> bool:
         """Compares the current formula with the given one.
