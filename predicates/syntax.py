@@ -176,6 +176,87 @@ class Term:
             that entire name (and not just a part of it, such as ``'x1'``).
         """
         # Task 7.3a
+        
+        # There are 3 types of Term (variable, constant, function invocation),
+        # each of which is identifiable from its first character.
+
+        # Case 1: The Term is a variable
+        if is_variable(string[0]): 
+            # In this case, we want to send back the whole variable. We do this
+            # by first checking if the entire string is a variable. This also
+            # covers the case where the string is just a single character.
+            if is_variable(string):
+                return tuple([Term(string), ''])
+            # If the whole string isn't a variable, we just loop until we find
+            # the entire thing.
+            term = string[0]
+            rest = string[1:]
+            for i in range(1, len(string)):
+                if is_variable(string[:i+1]):
+                    term = string[:i+1]
+                    rest = string[i+1:]
+                else:
+                    return tuple([Term(term), rest])
+                
+        # Case 2: The Term is a constant
+        elif is_constant(string[0]):
+            # In this case, we do the same exact thing as when we check for
+            # a variable. You may be able to combine these cases to write
+            # less code, but I didn't.
+            if is_constant(string):
+                return tuple([Term(string), ''])
+            term = string[0]
+            rest = string[1:]
+            for i in range(1, len(string)):
+                if is_constant(string[:i+1]):
+                    term = string[:i+1]
+                    rest = string[i+1:]
+                else:
+                    return tuple([Term(term), rest])
+                
+        # Case 3: The Term is a function invocation
+        elif is_function(string[0]):
+            # In this case, we start by finding the full name of the function
+            # by looping as in the other cases.
+            root = string[0]
+            rest = string[1:]
+            for i in range(1, len(string)):
+                if is_function(string[:i+1]):
+                    root = string[:i+1] # The longest function name so far
+                    rest = string[i+1:] # The rest of the string
+                    continue
+                else:
+                    # At this point, we've found the entire function name, leaving
+                    # just its arguments in the string. We will loop through each
+                    # argument one at a time, but first we remove the initial '('
+                    # and initialize a list for our arguments.
+                    rest = rest[1:] # Remove the '('
+                    arguments = []
+                    while True: # Scary infinite loop that doesn't end
+                        # We loop through each argument in our function invocation,
+                        # and at each stage of the loop there are two subcases:
+                        #   (a) there are no more arguments, or
+                        #   (b) there are more arguments that we haven't considered yet.
+                        # Subcase (a) occurs iff the next character is ')', in which case
+                        # we're done. In case (b), we find the next argument using
+                        # recursion. To make sure we set ourselves up correctly for the 
+                        # next step of the loop, we remove any commas coming next.
+
+                        # Subcase (a)
+                        if rest[0] == ')':
+                            if len(rest) == 1:
+                                return tuple([Term(root, tuple(arguments)), ''])
+                            else:
+                                return tuple([Term(root, tuple(arguments)), rest[1:]])
+                            
+                        # Subcase (b)
+                        arg, rest = Term._parse_prefix(rest) # Find the next argument
+                        arguments.append(arg) # Add it to the list
+                        if rest[0] == ',': # If a comma comes next, we remove it.
+                            if len(rest) != 1:
+                                rest = rest[1:]
+                            else:
+                                rest = ''
 
     @staticmethod
     def parse(string: str) -> Term:
