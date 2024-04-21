@@ -683,6 +683,22 @@ class Formula:
             A set of all constant names used in the current formula.
         """
         # Task 7.6a
+        if is_unary(self.root):
+            return self.first.constants()
+        elif is_binary(self.root):
+            constants = set()
+            constants.update(self.first.constants())
+            constants.update(self.second.constants())
+            return constants
+        elif is_quantifier(self.root):
+            return self.statement.constants()
+        elif is_relation(self.root) or is_equality(self.root):
+            constants = set()
+            for term in self.arguments:
+                constants.update(term.constants())
+            return constants
+        else:
+            return set()
 
     def variables(self) -> Set[str]:
         """Finds all variable names in the current formula.
@@ -691,6 +707,25 @@ class Formula:
             A set of all variable names used in the current formula.
         """
         # Task 7.6b
+        if is_unary(self.root):
+            return self.first.variables()
+        elif is_binary(self.root):
+            variables = set()
+            variables.update(self.first.variables())
+            variables.update(self.second.variables())
+            return variables
+        elif is_quantifier(self.root):
+            variables = set()
+            variables.add(self.variable)
+            variables.update(self.statement.variables())
+            return variables
+        elif is_relation(self.root) or is_equality(self.root):
+            variables = set()
+            for term in self.arguments:
+                variables.update(term.variables())
+            return variables
+        else:
+            return set()
 
     def free_variables(self) -> Set[str]:
         """Finds all variable names that are free in the current formula.
@@ -700,6 +735,26 @@ class Formula:
             only within a scope of a quantification on that variable name.
         """
         # Task 7.6c
+        if is_unary(self.root):
+            return self.first.free_variables()
+        elif is_binary(self.root):
+            variables = set()
+            variables.update(self.first.free_variables())
+            variables.update(self.second.free_variables())
+            return variables
+        elif is_quantifier(self.root):
+            variables = set()
+            variables.update(self.statement.free_variables())
+            if self.variable in variables:
+                variables.remove(self.variable)
+            return variables
+        elif is_relation(self.root) or is_equality(self.root):
+            variables = set()
+            for term in self.arguments:
+                variables.update(term.variables())
+            return variables
+        else:
+            return set()
 
     def functions(self) -> Set[Tuple[str, int]]:
         """Finds all function names in the current formula, along with their
@@ -710,6 +765,22 @@ class Formula:
             all function names used in the current formula.
         """
         # Task 7.6d
+        if is_unary(self.root):
+            return self.first.functions()
+        elif is_binary(self.root):
+            functions = set()
+            functions.update(self.first.functions())
+            functions.update(self.second.functions())
+            return functions
+        elif is_quantifier(self.root):
+            return self.statement.functions()
+        elif is_relation(self.root) or is_equality(self.root):
+            functions = set()
+            for term in self.arguments:
+                functions.update(term.functions())
+            return functions
+        else:
+            return set()
 
     def relations(self) -> Set[Tuple[str, int]]:
         """Finds all relation names in the current formula, along with their
@@ -720,6 +791,19 @@ class Formula:
             all relation names used in the current formula.
         """
         # Task 7.6e
+        if is_unary(self.root):
+            return self.first.relations()
+        elif is_binary(self.root):
+            relations = set()
+            relations.update(self.first.relations())
+            relations.update(self.second.relations())
+            return relations
+        elif is_quantifier(self.root):
+            return self.statement.relations()
+        elif is_relation(self.root):
+            return set([tuple([self.root, len(self.arguments)])])
+        else:
+            return set()
 
     def substitute(self, substitution_map: Mapping[str, Term],
                    forbidden_variables: AbstractSet[str] = frozenset()) -> \
