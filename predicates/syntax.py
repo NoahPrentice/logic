@@ -269,6 +269,7 @@ class Term:
             A term whose standard string representation is the given string.
         """
         # Task 7.3b
+        return Term._parse_prefix(string)[0] # Parse prefix does all the work!
 
     def constants(self) -> Set[str]:
         """Finds all constant names in the current term.
@@ -549,6 +550,93 @@ class Formula:
         """
         # Task 7.4a
 
+        # There are 5 different kinds of formula, 4 of which are easily
+        # identifiable from the first character. The hardest is equality,
+        # which we leave to the end.
+
+        # Case 1: Unary operation
+        if is_unary(string[0]):
+            # In this case, we recursively find the negated subformula.
+            subformula, rest = Formula._parse_prefix(string[1:])
+            return tuple([Formula(string[0], subformula), rest])
+        
+        # Case 2: Binary operation
+        elif string[0] == '(':
+            # In this case, we recursively find the first subformula
+            first, rest = Formula._parse_prefix(string[1:])
+            # Then we find the operator
+            if is_binary(rest[0]):
+                operator = rest[0]
+                rest = rest[1:]
+            else:
+                operator = rest[0:2]
+                rest = rest[2:]
+            # Then we find the second subformula
+            second, rest = Formula._parse_prefix(rest)
+            if len(rest) == 1:
+                return tuple([Formula(operator, first, second), ''])
+            else:
+                return tuple([Formula(operator, first, second), rest[1:]])
+        
+        # Case 3: Quantification
+        elif is_quantifier(string[0]):
+            # In this case, we start by noting our quantifier.
+            quantifier = string[0]
+            # Then we find what the quantified variable is. We do this
+            # similarly to finding the variable name for Term._parse_prefix
+            variableTestString = string[1:]
+            variable = variableTestString[0]
+            rest = variableTestString[1:]
+            for i in range(1, len(variableTestString)):
+                if is_variable(variableTestString[:i+1]):
+                    variable = variableTestString[:i+1]
+                    rest = variableTestString[i+1:]
+                else:
+                    break
+            
+            # Now we have the quantifier and variable, so we recursively find
+            # the representation of the subformula.
+            rest = rest[1:] # Remove the '['
+            subformula, rest = Formula._parse_prefix(rest)
+            if len(rest) == 1:
+                return tuple([Formula(quantifier, variable, subformula), ''])
+            else:
+                return tuple([Formula(quantifier, variable, subformula), rest[1:]]) # remove the ']'
+            
+        # Case 4: Relation invocation
+        elif is_relation(string[0]):
+            # This case is very similar to parsing function invocations for Terms.
+            # Start by finding the relation name
+            relation = string[0]
+            rest = string[1:]
+            for i in range(1, len(string)):
+                if is_relation(string[:i+1]):
+                    relation = string[:i+1]
+                    rest = string[i+1:]
+                    continue
+                else:
+                    # Then we parse each of its arguments
+                    rest = rest[1:] # Remove the '('
+                    arguments = []
+                    while True:
+                        # Either we have all of the arguments (in which case 
+                        # the next character is ')') or we have more.
+                        if rest[0] == ')':
+                            if len(rest) == 1:
+                                return tuple([Formula(relation, tuple(arguments)), ''])
+                            else:
+                                return tuple([Formula(relation, tuple(arguments)), rest[1:]])
+                        arg, rest = Term._parse_prefix(rest)
+                        arguments.append(arg)
+                        if rest[0] == ',':
+                            rest = rest[1:]
+
+        # Case 5: Equality
+        else:
+            # In this case, we find the left and right terms and then combine them.
+            left, rest = Term._parse_prefix(string)
+            right, rest = Term._parse_prefix(rest[1:])
+            return tuple([Formula('=', tuple([left, right])), rest])
     @staticmethod
     def parse(string: str) -> Formula:
         """Parses the given valid string representation into a formula.
@@ -560,6 +648,7 @@ class Formula:
             A formula whose standard string representation is the given string.
         """
         # Task 7.4b
+        return Formula._parse_prefix(string)[0]
 
     def constants(self) -> Set[str]:
         """Finds all constant names in the current formula.
