@@ -262,3 +262,64 @@ class Model(Generic[T]):
                 assert relation in self.relation_interpretations and \
                        self.relation_arities[relation] in {-1, arity}
         # Task 7.9
+
+        # Start by finding all of the different free-variables
+        free_variables = set()
+        for formula in formulas:
+            free_variables.update(formula.free_variables())
+        free_variables = list(free_variables)
+        if len(free_variables) == 0:
+            for formula in formulas:
+                if not self.evaluate_formula(formula):
+                    return False
+            return True
+        # Now we construct Omega^n, where n is any integer.
+        def combinations(n, Omega) -> list[list[str]]:
+            """ Constructs Omega^n, where Omega is the universe and n is any integer.
+            
+            Parameters:
+                n: dimension to build to
+                Omega: universe
+
+            Returns:
+                Omega^n, that is, a list of every n-tuple consisting of elements of
+                Omega. Instead of using tuples, though, it uses lists.
+            """
+            # Base cases: n <= 1
+            if n < 1:
+                return []
+            # If n = 1, then we return a list of 1-tuples
+            list_omega = []
+            for element in list(Omega):
+                list_omega.append([element])
+            if n == 1:
+                return list_omega
+            else:
+                Omega_n = []
+                # If n > 1, we construct the list of all n-1 tuples, called previous
+                previous = combinations(n-1, Omega)
+                # Now we loop through each n-1 tuple and add on every possible element
+                # of Omega.
+                for combo in previous:
+                    for element in Omega:
+                        temp_combo = combo.copy()
+                        temp_combo.append(element)
+                        Omega_n.append(temp_combo)
+                return Omega_n
+        # We use this to find every possible assignment for our free variables
+        Omega_n = combinations(len(free_variables), self.universe)
+        for combo in Omega_n:
+            # We construct every possible assignment by taking our list of
+            # n-tuples and matching them 1-1 with its corresponding free-variable
+            assignment = dict()
+            for i in range(len(free_variables)):
+                variable = free_variables[i]
+                interpretation = combo[i]
+                assignment[variable] = interpretation
+            # Then we check to see if that assignment makes any formula false
+            for formula in formulas:
+                if not self.evaluate_formula(formula, frozendict(assignment)):
+                    return False
+        # If every formula is true under every assignment for every free-variable,
+        # then we return True.
+        return True
