@@ -302,6 +302,11 @@ class Model(Generic[T]):
                 # of Omega.
                 for combo in previous:
                     for element in Omega:
+                        # Annoyingly and counterintuitively, if you create a copy of a list by
+                        # mere assignment (e.g., temp_combo = combo) and then append something
+                        # to the copy (e.g., temp_combo.append(element)), then the original
+                        # ALSO gains the new element (i.e., combo will also now contain element).
+                        # So, we have to use the dedicated copy method for lists.
                         temp_combo = combo.copy()
                         temp_combo.append(element)
                         Omega_n.append(temp_combo)
