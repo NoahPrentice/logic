@@ -67,6 +67,36 @@ def replace_functions_with_relations_in_model(model: Model[T]) -> Model[T]:
                model.relation_interpretations
     # Task 8.1
 
+    # Unpack everything in the model.
+    universe = model.universe
+    constant_interpretations = model.constant_interpretations
+    relation_interpretations = dict(model.relation_interpretations)
+    function_interpretations = model.function_interpretations
+
+    # Go through each function, one at a time
+    for function_name in function_interpretations:
+        # Find its arity and interpretation. The interpretation will be a Mapping (dict)
+        # from Omega^(arity) to Omega. We turn this into a relation with arity
+        # Omega^(arity + 1). We do this by taking each input for the function
+        # (given as the keys of the dict) and putting its arguments into a tuple with 
+        # the output (given as the value of the dict) in front.
+        function_interpretation = function_interpretations[function_name] # Mapping from Omega^(arity) to Omega
+        # Initialize a set for our relation and find its new name.
+        relation_interpretation = set()
+        relation_name = function_name_to_relation_name(function_name)
+        # Now we go through each possible input for the function
+        for input_arguments in function_interpretation.keys():
+            # We put all of the input arguments into a list
+            new_relation = [arg for arg in input_arguments]
+            # And insert the output (value of the Mapping) in position 0.
+            new_relation.insert(0, function_interpretation[input_arguments])
+            # Then cast to a tuple and add it as a new relation interpretation.
+            relation_interpretation.add(tuple(new_relation))
+        relation_interpretations[relation_name] = relation_interpretation
+    # Once we're done with each of the functions, we return a new Model.
+    empty_mapping = dict()
+    return Model(universe, constant_interpretations, relation_interpretations, empty_mapping)
+
 def replace_relations_with_functions_in_model(model: Model[T],
                                               original_functions:
                                               AbstractSet[str]) -> \

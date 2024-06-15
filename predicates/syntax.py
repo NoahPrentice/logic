@@ -599,10 +599,7 @@ class Formula:
                 rest = rest[2:]
             # Then we find the second subformula
             second, rest = Formula._parse_prefix(rest)
-            if len(rest) == 1:
-                return tuple([Formula(operator, first, second), ''])
-            else:
-                return tuple([Formula(operator, first, second), rest[1:]])
+            return tuple([Formula(operator, first, second), rest[1:]])
         
         # Case 3: Quantification
         elif is_quantifier(string[0]):
