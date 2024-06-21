@@ -75,7 +75,7 @@ def replace_functions_with_relations_in_model(model: Model[T]) -> Model[T]:
 
     # Go through each function, one at a time
     for function_name in function_interpretations:
-        # Find its arity and interpretation. The interpretation will be a Mapping (dict)
+        # Find its interpretation. The interpretation will be a Mapping (dict)
         # from Omega^(arity) to Omega. We turn this into a relation with arity
         # Omega^(arity + 1). We do this by taking each input for the function
         # (given as the keys of the dict) and putting its arguments into a tuple with 
@@ -124,6 +124,53 @@ def replace_relations_with_functions_in_model(model: Model[T],
         assert function_name_to_relation_name(function) in \
                model.relation_interpretations
     # Task 8.2
+
+    # Unpack the model.
+    universe = list(model.universe)
+    constant_interpretations = model.constant_interpretations
+    function_interpretations = dict()
+    relation_interpretations = dict(model.relation_interpretations)
+    relation_arities = model.relation_arities
+
+    # We loop through every function which we are trying to construct.
+    for function_name in original_functions:
+        # Find its corresponding relation and the info about it.
+        relation_name = function_name_to_relation_name(function_name)
+        relation_interpretation = relation_interpretations[relation_name]
+        relation_arity = relation_arities[relation_name]
+
+        # We try to interpret the relation as a function from Omega^(arity-1) to Omega.
+        # This is possible if and only if every element of Omega^(arity-1) appears exactly
+        # once at the end of a tuple in the relation. This occurs if and only if:
+        #   (a) There are as many tuples in the relation as there are elements of Omega^(arity-1),
+        #   (b) No element of Omega^(arity-1) appears more than once at the end of a tuple.
+
+        # Check condition (a)
+        omega_size = len(universe)
+        if len(list(relation_interpretation)) != omega_size**(relation_arity-1):
+            return None
+        
+        # If condition (a) holds, then we can go ahead and look through the actual related tuples.
+        function_interpretation = dict()
+        for tuple_relation in relation_interpretation:
+            relation = list(tuple_relation)
+            args = tuple(relation[1:])
+
+            # Check condition (b) for each element of Omega^(arity-1)
+            if args in function_interpretation.keys():
+                return None
+            
+            # If both hold, then we build the function.
+            value = relation[0]
+            function_interpretation[args] = value
+
+        # Add the function to the interpretations and remove it as a relation interpretation
+        function_interpretations[function_name] = function_interpretation
+        relation_interpretations.pop(relation_name)
+    return Model(universe, constant_interpretations, relation_interpretations, function_interpretations)
+    
+    
+
 
 def _compile_term(term: Term) -> List[Formula]:
     """Syntactically compiles the given term into a list of single-function
