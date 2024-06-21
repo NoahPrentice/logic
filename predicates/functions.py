@@ -198,6 +198,37 @@ def _compile_term(term: Term) -> List[Formula]:
         assert not is_z_and_number(variable)
     # Task 8.3
 
+    steps = []
+    # We'll use recursion to handle nested function calls. We start by finding
+    # which arguments are themselves function calls.
+    arguments = list(term.arguments)
+    indices_of_arguments_which_are_functions = []
+    for i in range(len(arguments)):
+        if is_function(arguments[i].root):
+            indices_of_arguments_which_are_functions.append(i)
+
+    # If our function's arguments contain no functions, then
+    # we can just return it as a step. This is our base case.
+    if len(indices_of_arguments_which_are_functions) == 0:
+        steps.append(Formula("=", [Term(next(fresh_variable_name_generator)), term]))
+        return steps
+    
+    # Otherwise, we recurse to find the steps of each of the function arguments,
+    # in order. We need to keep track of what variables we call each of the
+    # arguments under the new naming, though.
+    for i in indices_of_arguments_which_are_functions:
+        arg_steps = _compile_term(arguments[i])
+        steps.extend(arg_steps)
+        # We give this argument a new variable name, which we find as it
+        # is the left hand side of the equality in the last step.
+        arguments[i] = arg_steps[-1].arguments[0]
+    
+    # Add our final step, which is an equality for our entire term, using the new
+    # argument names.
+    steps.append(Formula("=", [Term(next(fresh_variable_name_generator)), Term(term.root, arguments)]))
+    return steps
+    
+
 def replace_functions_with_relations_in_formula(formula: Formula) -> Formula:
     """Syntactically converts the given formula to a formula that does not
     contain any function invocations, and is "one-way equivalent" in the sense
