@@ -252,6 +252,51 @@ def replace_functions_with_relations_in_formula(formula: Formula) -> Formula:
     for variable in formula.variables():
         assert not is_z_and_number(variable)
     # Task 8.4
+    if is_equality(formula.root) or is_relation(formula.root):
+        # First, compile all terms of the relation
+        arguments = list(formula.arguments)
+        new_arguments = list(formula.arguments)
+        argument_steps = []
+        for i in range(len(arguments)):
+            if is_function(arguments[i].root):
+                arg_steps = _compile_term(arguments[i])
+                argument_steps.extend(arg_steps)
+                new_arguments[i] = arg_steps[-1].arguments[0]
+        # If no terms needed compiling, then our relation is good as it is.
+        if len(argument_steps) == 0:
+            return formula
+        else:
+            """ 
+            Otherwise, we need to create a new formula that involves all of the compilation done for the
+            needed terms. Because of the tree-like structure of the Formula class, it is easiest to do
+            this "inside out" or "backwards": given an original formula of R(f(g(x)), h(2, y), 3), we have 
+            argument_steps = [z1 = g(x), z2 = f(z1), z3 = h(2, y)]. Then our relation becomes R(z2, z3, 3).
+            We take this relation as our initial subformula and loop *backwards*  through each step in
+            argument_steps, adding on its contribution: R(z2, z3, 3) -> H(z3, 2, y) & R(z2, z3, 3)
+            -> Ez3(H(z3, 2, y) & R(z2, z3, 3) -> (F(z2, z1) & Ez3[(H(z3, 2, y) & R(z2, z3, 3))])
+            -> Ez2[(F(z2, z1) & Ez3[(H(z3, 2, y) & R(z2, z3, 3))])] and so on. We do this by keeping track
+            of each intermediate step as the "subformula," building on it in each iteration of the loop. 
+            """
+            subformula = Formula(formula.root, new_arguments) # Start with just the relation, e.g. R(z2, z3, 3).
+            for step in reversed(argument_steps): # loop through the steps backwards.
+                # Each step is a Formula object like z5 = f(z4, 0), which has root "=" and arguments
+                # [z5, f(z4, 0)]. We turn this into F(z5, z4, 0).
+                relation_name = function_name_to_relation_name(step.arguments[1].root) # This yields F
+                next_variable = step.arguments[0] # This yields z5
+                relation_arguments = list(step.arguments[1].arguments) # List containing the arguments of f: [z4, 0]
+                relation_arguments.insert(0, next_variable) # Insert z5 into beginning of list: [z5, z4, 0]
+                relation = Formula(relation_name, relation_arguments) # Build the relation: F(z4, z4, 0)
+                subformula = Formula('&', relation, subformula) # Add on the previous subformula
+                subformula = Formula('E', next_variable.root, subformula) # Quantify over the next variable name.
+            return subformula
+    # If our formula is anythong other than a relation invocation (or equality), we just recurse.
+    elif is_unary(formula.root):
+        return Formula(formula.root, replace_functions_with_relations_in_formula(formula.first))
+    elif is_binary(formula.root):
+        return Formula(formula.root, replace_functions_with_relations_in_formula(formula.first), 
+                       replace_functions_with_relations_in_formula(formula.second))
+    elif is_quantifier(formula.root):
+        return Formula(formula.root, formula.variable, replace_functions_with_relations_in_formula(formula.statement))
 
 def replace_functions_with_relations_in_formulas(formulas:
                                                  AbstractSet[Formula]) -> \
