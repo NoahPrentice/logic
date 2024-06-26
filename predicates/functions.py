@@ -340,6 +340,48 @@ def replace_functions_with_relations_in_formulas(formulas:
         for variable in formula.variables():
             assert not is_z_and_number(variable)
     # Task 8.5
+
+    return_set = set()
+    for formula in formulas:
+        # Add the function-free analog
+        return_set.add(replace_functions_with_relations_in_formula(formula))
+        functions_and_arities = [[function, arity] for function, arity in list(formula.functions())]
+        # Now we loop through each function in the original formula.
+        for i in range(len(functions_and_arities)):
+            function_name = functions_and_arities[i][0]
+            arity = functions_and_arities[i][1]
+            relation_name = function_name_to_relation_name(function_name)
+            #  --- Building the existence statement ---
+            # We need arity + 1 variables, and their Term versions.
+            variable_list = [next(fresh_variable_name_generator) for j in range(arity + 1)]
+            term_list = [Term(var) for var in variable_list]
+
+            # Start with, e.g., Ez[F(z,x)]
+            existence_subformula = Formula('E', variable_list[0], Formula(relation_name, term_list))
+            # Then universally quantify over all of the other variables, e.g., Ax[Ez[F(z, x)]]
+            for j in range(arity): 
+                existence_subformula = Formula('A', variable_list[j+1], existence_subformula)
+
+            # --- Building the uniqueness statement ---
+            # We need two sets of relation arguments, where the only difference is the first one
+            # (the function's output).
+            second_variable_list = variable_list
+            second_variable_list.pop(0)
+            second_variable_list.insert(0, next(fresh_variable_name_generator))
+            second_term_list = [Term(var) for var in second_variable_list]
+
+            # Start with, e.g., F(z1, x) & F(z2, x)
+            uniqueness_subformula = Formula('&', Formula(relation_name, term_list), Formula(relation_name, second_term_list))
+            # which becomes (F(z1, x) & F(z2, x) -> z1 = z2)
+            uniqueness_subformula = Formula('->', uniqueness_subformula, Formula('=', [term_list[0], second_term_list[0]]))
+            # Then we universally quantify over all variables.
+            uniqueness_subformula = Formula('A', second_variable_list[0], uniqueness_subformula)
+            for j in range(arity + 1):
+                uniqueness_subformula = Formula('A', variable_list[j], uniqueness_subformula)
+
+            # Conjoin the existence and uniqueness statements, and add the conjunction to the set.
+            return_set.add(Formula('&', existence_subformula, uniqueness_subformula))
+    return return_set
         
 def replace_equality_with_SAME_in_formulas(formulas: AbstractSet[Formula]) -> \
         Set[Formula]:
