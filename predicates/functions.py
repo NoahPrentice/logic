@@ -480,6 +480,12 @@ def add_SAME_as_equality_in_model(model: Model[T]) -> Model[T]:
     """
     assert 'SAME' not in model.relation_interpretations
     # Task 8.7
+    interpretation = []
+    for x in model.universe:
+        interpretation.append(tuple([x, x]))
+    relation_interpretations = dict(model.relation_interpretations)
+    relation_interpretations['SAME'] = interpretation
+    return Model(model.universe, model.constant_interpretations, relation_interpretations, model.function_interpretations)
     
 def make_equality_as_SAME_in_model(model: Model[T]) -> Model[T]:
     """Converts the given model to a model where equality coincides with the
