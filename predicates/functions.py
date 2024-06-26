@@ -511,3 +511,59 @@ def make_equality_as_SAME_in_model(model: Model[T]) -> Model[T]:
            model.relation_arities['SAME'] == 2
     assert len(model.function_interpretations) == 0
     # Task 8.8
+    universe = model.universe
+    relation_interpretations = dict(model.relation_interpretations)
+    constant_interpretations = dict(model.constant_interpretations)
+    same_interpretation = [list(same_pair) for same_pair in relation_interpretations['SAME']]
+
+    # --- Step 1: Updating the Universe ---
+    # Construct the equivalence classes defined by 'SAME'
+    equivalence_classes = []
+    for x in universe:
+        x_equivalence_class = []
+        for same_pair in same_interpretation:
+            if same_pair[0] == x:
+                x_equivalence_class.append(same_pair[1])
+        equivalence_classes.append(frozenset(x_equivalence_class))
+
+    # Add only a single representative of each equivalence class to the new universe.
+    new_universe = set()
+    for equivalence_class in list(frozenset(equivalence_classes)):
+        list_class = list(equivalence_class)
+        new_universe.add(list_class[0])
+
+    # --- Step 2: Updating Constants ---
+    def find_representative_of_element(element: T) -> T:
+        # Takes in an element of the universe and finds its representative in the equivalence classes.
+        for equivalence_class in list(frozenset(equivalence_classes)): # Look at each class
+                        if element in equivalence_class: # Find the one that the element is in
+                            for equivalence_class_element in equivalence_class: # Find the representative
+                                if equivalence_class_element in new_universe:
+                                    return equivalence_class_element # Return it.
+    for constant_name in model.constant_interpretations.keys():
+        constant_interpretations[constant_name] = find_representative_of_element(model.constant_interpretations[constant_name])
+    
+    # --- Step 3: Updating Relations ---
+    def update_relation(relation_name: str) -> AbstractSet[Tuple[T]]:
+        # Updates a relation so as to only involve elements of the new universe.
+        # Consider the old universe {1, 2, 3} where SAME(1, 3) holds. Suppose we chose
+        # to keep 1 in our universe but remove 3 (1 is in new_universe, but 3 is not). 
+        # If we have a relation S defined by {(1, 3), (2, 3)}, we need to replace 3 in each
+        # of the related tuples.
+        new_interpretation = set()
+        for related_tuple in relation_interpretations[relation_name]: # Look at, e.g., (1, 3)
+            related_list = list(related_tuple) # Turn it into a list, e.g., [1, 3]
+            for i in range(len(related_list)): # Go through each element.
+                element = related_list[i]
+                # If it isn't in the new_universe (as is the case for 3), we need to find
+                # the representative chosen for the new_universe (in this case, 1), and replace.
+                if element not in new_universe:
+                    related_list[i] = find_representative_of_element(element)
+            new_interpretation.add(tuple(related_list))
+            # Once you do that for each related tuple, you're done.
+        return new_interpretation
+    for relation_name in model.relation_interpretations.keys():
+        relation_interpretations[relation_name] = update_relation(relation_name)
+    del relation_interpretations['SAME'] # Get rid of 'SAME'
+    
+    return Model(new_universe, constant_interpretations, relation_interpretations, model.function_interpretations)
