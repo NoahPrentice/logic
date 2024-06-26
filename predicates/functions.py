@@ -411,6 +411,58 @@ def replace_equality_with_SAME_in_formulas(formulas: AbstractSet[Formula]) -> \
         assert 'SAME' not in \
                {relation for relation,arity in formula.relations()}
     # Task 8.6
+
+    # First we see how to do it in a single formula.
+    def replace_equality_with_SAME_in_formula(formula: Formula) -> Formula:
+        if formula.root == '=':
+            return Formula('SAME', formula.arguments)
+        elif is_unary(formula.root):
+            return Formula(formula.root, replace_equality_with_SAME_in_formula(formula.first))
+        elif is_binary(formula.root):
+            return Formula(formula.root, replace_equality_with_SAME_in_formula(formula.first), \
+                           replace_equality_with_SAME_in_formula(formula.second))
+        elif is_quantifier(formula.root):
+            return Formula(formula.root, formula.variable, replace_equality_with_SAME_in_formula(formula.statement))
+        else:
+            return formula
+    return_set = set()
+    for formula in formulas:
+        # Add each formula without equality.
+        return_set.add(replace_equality_with_SAME_in_formula(formula))
+        relations_and_arities = [[relation, arity] for relation, arity in formula.relations()]
+        for i in range(len(relations_and_arities)): # Now we add a formula for each relation.
+            relation_name = relations_and_arities[i][0]
+            arity = relations_and_arities[i][1]
+            # We need 2*arity variables. Trying to construct two lists of arity variables did not
+            # work, for some reason. So I construct one list of 2*arity variables, and split it
+            # in half.
+            variable_list = [next(fresh_variable_name_generator) for i in range(2*arity)] 
+            second_variable_list = variable_list[arity:]
+            variable_list = variable_list[:arity]
+            term_list = [Term(var) for var in variable_list]
+            second_term_list = [Term(var) for var in second_variable_list]
+
+            # Build, e.g., ((SAME(x1,x2) & SAME(y1, y2)) -> (R(x1, y1) -> R(x2, y2)))
+            consequent = Formula('->', Formula(relation_name, term_list), Formula(relation_name, second_term_list))
+            antecedent = Formula('SAME', [term_list[0], second_term_list[0]])
+            for j in range(len(term_list) - 1):
+                antecedent = Formula('&', antecedent, Formula('SAME', [term_list[j+1], second_term_list[j+1]]))
+            subformula = Formula('->', antecedent, consequent)
+
+            # Now we universally quantify over all of the variables.
+            for j in range(len(variable_list)):
+                subformula = Formula('A', variable_list[j], subformula)
+                subformula = Formula('A', second_variable_list[j], subformula)
+            return_set.add(subformula)
+    # Add reflexivity, symmetry, and transitivity, and you're done!
+    reflexivity = Formula.parse("Ax[x=x]")
+    symmetry = Formula.parse("Ax[Ay[((x=y->y=x)&(y=x->x=y))]]")
+    transitivity = Formula.parse("Ax[Ay[Az[((x=y&y=z)->x=z)]]]")
+    return_set.add(replace_equality_with_SAME_in_formula(reflexivity))
+    return_set.add(replace_equality_with_SAME_in_formula(symmetry))
+    return_set.add(replace_equality_with_SAME_in_formula(transitivity))
+    return return_set
+
         
 def add_SAME_as_equality_in_model(model: Model[T]) -> Model[T]:
     """Adds an interpretation of the relation name ``'SAME'`` in the given
