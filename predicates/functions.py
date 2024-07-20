@@ -168,9 +168,6 @@ def replace_relations_with_functions_in_model(model: Model[T],
         function_interpretations[function_name] = function_interpretation
         relation_interpretations.pop(relation_name)
     return Model(universe, constant_interpretations, relation_interpretations, function_interpretations)
-    
-    
-
 
 def _compile_term(term: Term) -> List[Formula]:
     """Syntactically compiles the given term into a list of single-function
@@ -227,7 +224,6 @@ def _compile_term(term: Term) -> List[Formula]:
     # argument names.
     steps.append(Formula("=", [Term(next(fresh_variable_name_generator)), Term(term.root, arguments)]))
     return steps
-    
 
 def replace_functions_with_relations_in_formula(formula: Formula) -> Formula:
     """Syntactically converts the given formula to a formula that does not
@@ -271,14 +267,14 @@ def replace_functions_with_relations_in_formula(formula: Formula) -> Formula:
             needed terms. Because of the tree-like structure of the Formula class, it is easiest to do
             this "inside out" or "backwards": given an original formula of R(f(g(x)), h(2, y), 3), we have 
             argument_steps = [z1 = g(x), z2 = f(z1), z3 = h(2, y)]. Then our relation becomes R(z2, z3, 3).
-            We take this relation as our initial subformula and loop *backwards*  through each step in
+            We take this relation as our initial subformula and loop *backwards* through each step in
             argument_steps, adding on its contribution: R(z2, z3, 3) -> H(z3, 2, y) & R(z2, z3, 3)
-            -> Ez3(H(z3, 2, y) & R(z2, z3, 3) -> (F(z2, z1) & Ez3[(H(z3, 2, y) & R(z2, z3, 3))])
+            -> Ez3[(H(z3, 2, y) & R(z2, z3, 3))] -> (F(z2, z1) & Ez3[(H(z3, 2, y) & R(z2, z3, 3))])
             -> Ez2[(F(z2, z1) & Ez3[(H(z3, 2, y) & R(z2, z3, 3))])] and so on. We do this by keeping track
             of each intermediate step as the "subformula," building on it in each iteration of the loop. 
             """
             subformula = Formula(formula.root, new_arguments) # Start with just the relation, e.g. R(z2, z3, 3).
-            for step in reversed(argument_steps): # loop through the steps backwards.
+            for step in reversed(argument_steps): # Loop through the steps backwards.
                 # Each step is a Formula object like z5 = f(z4, 0), which has root "=" and arguments
                 # [z5, f(z4, 0)]. We turn this into F(z5, z4, 0).
                 relation_name = function_name_to_relation_name(step.arguments[1].root) # This yields F
@@ -351,6 +347,7 @@ def replace_functions_with_relations_in_formulas(formulas:
             function_name = functions_and_arities[i][0]
             arity = functions_and_arities[i][1]
             relation_name = function_name_to_relation_name(function_name)
+
             #  --- Building the existence statement ---
             # We need arity + 1 variables, and their Term versions.
             variable_list = [next(fresh_variable_name_generator) for j in range(arity + 1)]
@@ -374,7 +371,7 @@ def replace_functions_with_relations_in_formulas(formulas:
             uniqueness_subformula = Formula('&', Formula(relation_name, term_list), Formula(relation_name, second_term_list))
             # which becomes (F(z1, x) & F(z2, x) -> z1 = z2)
             uniqueness_subformula = Formula('->', uniqueness_subformula, Formula('=', [term_list[0], second_term_list[0]]))
-            # Then we universally quantify over all variables.
+            # then we universally quantify over all variables.
             uniqueness_subformula = Formula('A', second_variable_list[0], uniqueness_subformula)
             for j in range(arity + 1):
                 uniqueness_subformula = Formula('A', variable_list[j], uniqueness_subformula)
@@ -462,7 +459,6 @@ def replace_equality_with_SAME_in_formulas(formulas: AbstractSet[Formula]) -> \
     return_set.add(replace_equality_with_SAME_in_formula(symmetry))
     return_set.add(replace_equality_with_SAME_in_formula(transitivity))
     return return_set
-
         
 def add_SAME_as_equality_in_model(model: Model[T]) -> Model[T]:
     """Adds an interpretation of the relation name ``'SAME'`` in the given
@@ -532,6 +528,10 @@ def make_equality_as_SAME_in_model(model: Model[T]) -> Model[T]:
         list_class = list(equivalence_class)
         new_universe.add(list_class[0])
 
+    # TODO: change the equivalence class structure to a dictionary where each element
+    # of the universe is a key and the value is its representative in the equivalence
+    # class.
+
     # --- Step 2: Updating Constants ---
     def find_representative_of_element(element: T) -> T:
         # Takes in an element of the universe and finds its representative in the equivalence classes.
@@ -565,5 +565,5 @@ def make_equality_as_SAME_in_model(model: Model[T]) -> Model[T]:
     for relation_name in model.relation_interpretations.keys():
         relation_interpretations[relation_name] = update_relation(relation_name)
     del relation_interpretations['SAME'] # Get rid of 'SAME'
-    
+
     return Model(new_universe, constant_interpretations, relation_interpretations, model.function_interpretations)

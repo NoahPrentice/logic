@@ -364,6 +364,25 @@ class Term:
             assert is_variable(variable)
         # Task 9.1
 
+        # First we check if any forbidden substitutions are requested
+        for key in substitution_map.keys():
+            value = substitution_map[key]
+            bad_vars = list(value.variables().intersection(forbidden_variables))
+            if len(bad_vars) != 0:
+                raise ForbiddenVariableError(bad_vars[0])
+            
+        # If not, then we make the substitutions, using recursion for functions invocations.
+        if is_constant(self.root) or is_variable(self.root):
+            if self.root not in substitution_map:
+                return self
+            else:
+                return substitution_map[self.root]
+        else: # Function invocation
+            new_args = []
+            for arg in self.arguments:
+                new_args.append(arg.substitute(substitution_map))
+            return Term(self.root, new_args)
+
 @lru_cache(maxsize=100) # Cache the return value of is_equality
 def is_equality(string: str) -> bool:
     """Checks if the given string is the equality relation.
