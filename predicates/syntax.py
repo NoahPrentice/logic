@@ -870,6 +870,26 @@ class Formula:
         for variable in forbidden_variables:
             assert is_variable(variable)
         # Task 9.2
+        if is_unary(self.root):
+            return Formula(self.root, self.first.substitute(substitution_map, forbidden_variables))
+        elif is_binary(self.root):
+            return Formula(self.root, self.first.substitute(substitution_map, forbidden_variables), self.second.substitute(substitution_map, forbidden_variables))
+        elif is_equality(self.root) or is_relation(self.root):
+            new_args = [arg.substitute(substitution_map, forbidden_variables) for arg in self.arguments]
+            return Formula(self.root, new_args)
+        else: # Quantification, the only difficult case
+            forbidden_variables = set(forbidden_variables)
+            if self.variable in substitution_map.keys():
+                # We want to make sure to skip over any substitutions of the quantified variable.
+                # So we delete the substitution from a copy of the map.
+                sub_map = substitution_map.copy()
+                del sub_map[self.variable]
+                return Formula(self.root, self.variable, self.statement.substitute(sub_map, forbidden_variables))
+            else:
+                # If no such substitution is requested, we just want to make sure to forbid any
+                # substitutions that would introduce a new term with the bound variable in it.
+                forbidden_variables.add(self.variable)
+                return Formula(self.root, self.variable, self.statement.substitute(substitution_map, forbidden_variables))
 
     def propositional_skeleton(self) -> Tuple[PropositionalFormula,
                                               Mapping[str, Formula]]:
