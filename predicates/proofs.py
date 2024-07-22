@@ -127,8 +127,7 @@ class Schema:
 
     @staticmethod
     def _instantiate_helper(formula: Formula,
-                            constants_and_variables_instantiation_map:
-                            Mapping[str, Term],
+                            constants_and_variables_instantiation_map: Mapping[str, Term],
                             relations_instantiation_map: Mapping[str, Formula],
                             bound_variables: AbstractSet[str] = frozenset()) \
             -> Formula:
@@ -241,26 +240,36 @@ class Schema:
         for variable in bound_variables:
             assert is_variable(variable)
         # Task 9.3
+        
+        # print("\nWorking through formula " + str(formula))
+        # print("With maps: " + str(constants_and_variables_instantiation_map) + ", " + str(relations_instantiation_map))
+        # print("And bound variables: " + str(bound_variables))
+        # The solution to this task follows the guidelines outlined in the chapter.
         if is_equality(formula.root):
             return formula.substitute(constants_and_variables_instantiation_map, set())
         elif is_relation(formula.root):
             # Non-template relation
             if formula.root not in relations_instantiation_map.keys():
                 return formula.substitute(constants_and_variables_instantiation_map, set())
+        
             # Nullary invocation of a template relation name
             elif len(list(formula.arguments)) == 0:
+                # print("Found nullary inv. of template relation")
                 free_variables = relations_instantiation_map[formula.root].free_variables()
                 if not free_variables.isdisjoint(bound_variables):
                     raise Schema.BoundVariableError(list(free_variables)[0], formula.root)
                 return relations_instantiation_map[formula.root]
+            
             # Unary invocation of a template relation name
             else:
+                # print("Found unary inv. of template relation")
                 free_variables = relations_instantiation_map[formula.root].free_variables()
                 if not free_variables.isdisjoint(bound_variables):
                     raise Schema.BoundVariableError(list(free_variables)[0], formula.root)
                 t = formula.arguments[0]
                 t_prime = t.substitute(constants_and_variables_instantiation_map, set())
                 return relations_instantiation_map[formula.root].substitute({'_': t_prime})
+            
         elif is_unary(formula.root):
             new_first = Schema._instantiate_helper(formula.first, constants_and_variables_instantiation_map, relations_instantiation_map, bound_variables)
             return Formula(formula.root, new_first)
@@ -268,6 +277,7 @@ class Schema:
             new_first = Schema._instantiate_helper(formula.first, constants_and_variables_instantiation_map, relations_instantiation_map, bound_variables)
             new_second = Schema._instantiate_helper(formula.second, constants_and_variables_instantiation_map, relations_instantiation_map, bound_variables)
             return Formula(formula.root, new_first, new_second)
+        
         else: # Quantification
             if formula.variable in constants_and_variables_instantiation_map.keys():
                 new_variable = list(constants_and_variables_instantiation_map[formula.variable].variables())[0]
@@ -394,6 +404,27 @@ class Schema:
                 assert is_relation(construct)
                 assert isinstance(instantiation_map[construct], Formula)
         # Task 9.4
+
+        # Fill in our maps
+        constants_and_variables_instantiation_map = dict()
+        relations_instantiation_map = dict()
+        for key in instantiation_map.keys():
+            if key not in self.templates: # Check to make sure all requested substitutions are templates
+                return None
+            elif is_constant(key):
+                constants_and_variables_instantiation_map[key] = instantiation_map[key]
+            elif is_variable(key):
+                constants_and_variables_instantiation_map[key] = Term.parse(instantiation_map[key])
+            else: # Relations
+                relations_instantiation_map[key] = instantiation_map[key]
+
+        # Then make the substitution by making _instantiate_helper do all of the work.
+        try:
+            result = Schema._instantiate_helper(self.formula, constants_and_variables_instantiation_map, relations_instantiation_map)
+            return result
+        except:
+            return None
+        
 
 @frozen
 class Proof:
