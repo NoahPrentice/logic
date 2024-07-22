@@ -241,6 +241,45 @@ class Schema:
         for variable in bound_variables:
             assert is_variable(variable)
         # Task 9.3
+        if is_equality(formula.root):
+            return formula.substitute(constants_and_variables_instantiation_map, set())
+        elif is_relation(formula.root):
+            # Non-template relation
+            if formula.root not in relations_instantiation_map.keys():
+                return formula.substitute(constants_and_variables_instantiation_map, set())
+            # Nullary invocation of a template relation name
+            elif len(list(formula.arguments)) == 0:
+                free_variables = relations_instantiation_map[formula.root].free_variables()
+                if not free_variables.isdisjoint(bound_variables):
+                    raise Schema.BoundVariableError(list(free_variables)[0], formula.root)
+                return relations_instantiation_map[formula.root]
+            # Unary invocation of a template relation name
+            else:
+                free_variables = relations_instantiation_map[formula.root].free_variables()
+                if not free_variables.isdisjoint(bound_variables):
+                    raise Schema.BoundVariableError(list(free_variables)[0], formula.root)
+                t = formula.arguments[0]
+                t_prime = t.substitute(constants_and_variables_instantiation_map, set())
+                return relations_instantiation_map[formula.root].substitute({'_': t_prime})
+        elif is_unary(formula.root):
+            new_first = Schema._instantiate_helper(formula.first, constants_and_variables_instantiation_map, relations_instantiation_map, bound_variables)
+            return Formula(formula.root, new_first)
+        elif is_binary(formula.root):
+            new_first = Schema._instantiate_helper(formula.first, constants_and_variables_instantiation_map, relations_instantiation_map, bound_variables)
+            new_second = Schema._instantiate_helper(formula.second, constants_and_variables_instantiation_map, relations_instantiation_map, bound_variables)
+            return Formula(formula.root, new_first, new_second)
+        else: # Quantification
+            if formula.variable in constants_and_variables_instantiation_map.keys():
+                new_variable = list(constants_and_variables_instantiation_map[formula.variable].variables())[0]
+                new_bound_variables = set(bound_variables)
+                new_bound_variables.add(new_variable)
+                new_statement = Schema._instantiate_helper(formula.statement, constants_and_variables_instantiation_map, relations_instantiation_map, new_bound_variables)
+                return Formula(formula.root, new_variable, new_statement)
+            else:
+                new_bound_variables = set(bound_variables)
+                new_bound_variables.add(formula.variable)
+                new_statement = Schema._instantiate_helper(formula.statement, constants_and_variables_instantiation_map, relations_instantiation_map, new_bound_variables)
+                return Formula(formula.root, formula.variable, new_statement)
 
     def instantiate(self, instantiation_map: InstantiationMap) -> \
             Union[Formula, None]:
