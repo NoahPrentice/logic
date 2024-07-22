@@ -594,6 +594,12 @@ class Proof:
             """
             assert line_number < len(lines) and lines[line_number] is self
             # Task 9.6
+            antecedent = lines[self.antecedent_line_number].formula
+            conditional = lines[self.conditional_line_number].formula
+            
+            test1 = (antecedent == conditional.first) and (self.formula == conditional.second)
+            test2 = (self.antecedent_line_number < line_number) and (self.conditional_line_number < line_number)
+            return test1 and test2
 
     @frozen
     class UGLine:
