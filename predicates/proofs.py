@@ -596,10 +596,11 @@ class Proof:
             # Task 9.6
             antecedent = lines[self.antecedent_line_number].formula
             conditional = lines[self.conditional_line_number].formula
-            
-            test1 = (antecedent == conditional.first) and (self.formula == conditional.second)
-            test2 = (self.antecedent_line_number < line_number) and (self.conditional_line_number < line_number)
-            return test1 and test2
+
+            return (antecedent == conditional.first) and \
+                (self.formula == conditional.second) and \
+                    (self.antecedent_line_number < line_number) and \
+                        (self.conditional_line_number < line_number)
 
     @frozen
     class UGLine:
@@ -655,6 +656,10 @@ class Proof:
             """
             assert line_number < len(lines) and lines[line_number] is self
             # Task 9.7
+            if not self.formula.root == 'A': # Check to make sure it's a universal quantification
+                return False
+            return (self.nonquantified_line_number < line_number) and \
+                (self.formula.statement == lines[self.nonquantified_line_number].formula)
 
     @frozen
     class TautologyLine:
