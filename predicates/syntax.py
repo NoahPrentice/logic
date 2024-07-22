@@ -917,6 +917,67 @@ class Formula:
         """
         # Task 9.8
 
+        """
+        The biggest difficulty with the structure of this function is that---though we want to
+        replace every quantification, equality, or relation invocation with a variable---we do not
+        want to generate a new variable every time we encounter a new formula of this type. An
+        example of this is building the skeleton of (R(x)|R(x)). This would have the skeleton
+        (z1|z1), not (z1|z2). So, when implementing the recursion for building the skeleton, we
+        need to keep track of which formulas already have variable assignments, and which don't.
+        For this purpose, I define a new function which does all of the work but keeps track of
+        the assignments along the way. This makes recursion much easier.
+        """
+        def build_skeleton(formula, mapping: Mapping[str, Formula]) \
+              -> Tuple[PropositionalFormula,Mapping[str, Formula]]:
+            """
+            Computes a propositional skeleton of the current formula.
+
+            Parameters:
+                formula: A predicate logic formula.
+                mapping: A mapping from variable names to predicate logic formulas.
+
+            Returns:
+                A pair, as returned by propositional_skeleton. The first element is the
+                propositional skeleton of the given formula, where variable names from the
+                given mapping are used if possible. The second element is a new mapping,
+                which is built by adding any new variable names to the old mapping.
+            """
+            
+            if is_quantifier(formula.root) or is_equality(formula.root) or is_relation(formula.root):
+                # Check if the formula already has a variable assignment. If it does, return that.
+                for key in mapping.keys():
+                    if mapping[key] == formula:
+                        return tuple([PropositionalFormula.parse(key), mapping])
+                
+                # Otherwise, get a new one and update the mapping.
+                variable = next(fresh_variable_name_generator)
+                new_mapping = mapping.copy()
+                new_mapping[variable] = formula
+                return tuple([PropositionalFormula.parse(variable), new_mapping])
+            
+            elif is_unary(formula.root):
+                # Build the skeleton for the operand, and add the operator.
+                first_skeleton = list(build_skeleton(formula.first, mapping))
+                first_propositional_formula = first_skeleton[0]
+                first_mapping = first_skeleton[1]
+
+                new_formula = PropositionalFormula(formula.root, first_propositional_formula)
+                return tuple([new_formula, first_mapping])
+            else:
+                # For binary operators, we build the skeleton for both the first and
+                # second operands, but make sure to use the updated mapping when
+                # building the second skeleton.
+                first_skeleton = list(build_skeleton(formula.first, mapping))
+                first_propositional_formula = first_skeleton[0]
+                first_mapping = first_skeleton[1]
+
+                second_skeleton = list(build_skeleton(formula.second, first_mapping))
+                second_propositional_formula = second_skeleton[0]
+                second_mapping = second_skeleton[1]
+
+                new_formula = PropositionalFormula(formula.root, first_propositional_formula, second_propositional_formula)
+                return tuple([new_formula, second_mapping])
+        return build_skeleton(self, dict())
     @staticmethod
     def from_propositional_skeleton(skeleton: PropositionalFormula,
                                     substitution_map: Mapping[str, Formula]) \
