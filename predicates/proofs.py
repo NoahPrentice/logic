@@ -875,6 +875,37 @@ def _prove_from_skeleton_proof(formula: Formula,
         for operator in line.formula.operators():
             assert is_unary(operator) or is_binary(operator)
     # Task 9.11b
+    # To build a predicate logic proof, we need assumptions, a conclusion, and a list of lines.
+    new_assumptions = PROPOSITIONAL_AXIOMATIC_SYSTEM_SCHEMAS
+    new_conclusion = formula
+    new_lines = []
+
+    # To get the lines, we loop through the skeleton proof lines. First, we translate their formulas
+    # into predicate logic formulas.
+    skeleton_proof_lines = list(skeleton_proof.lines)
+    for line in skeleton_proof_lines:
+        new_formula = Formula.from_propositional_skeleton(line.formula, substitution_map)
+        # The skeleton_proof has no assumptions, so every line is justified by an inference rule,
+        # either MP or the assumptionless inference rules forming our assumptions.
+        if len(list(line.assumptions)) > 0: # MP was used
+            # An MPLine is comprised of a formula, an antecedent_line_number, and a
+            # conditional_line_number. We have the formula already, and, luckily, the assumptions of
+            # the skeleton_proof line are always in the order putting antecedent_line_number first.
+            antecedent_line_number, conditional_line_number = list(line.assumptions)
+            new_lines.append(Proof.MPLine(new_formula, antecedent_line_number, conditional_line_number))
+        else: # An axiom was used
+            # An AssumptionLine is comprised of a formula, an assumption, and an instantiation_map. We
+            # have the formula already, and we can easily get the assumption by taking the inference
+            # rule used to justify the skeleton_proof line and finding its equivalent as a schema. The
+            # harder one is the instantiation_map, but we can use the _formula_specialization_map 
+            # method of type PropositionalInferenceRule (which finds the specialization map going from)
+            # the PropositionalInferenceRule to the formula of the skeleton_proof line) and the solution
+            # to task 9.11a (which takes the specialization map found and computes an instantiation_map).
+            assumption = PROPOSITIONAL_AXIOM_TO_SCHEMA[line.rule]
+            propositional_specialization_map = PropositionalInferenceRule._formula_specialization_map(line.rule.conclusion, line.formula)
+            instantation_map = _axiom_specialization_map_to_schema_instantiation_map(propositional_specialization_map, substitution_map)
+            new_lines.append(Proof.AssumptionLine(new_formula, assumption, instantation_map))
+    return Proof(new_assumptions, new_conclusion, new_lines)
 
 def prove_tautology(tautology: Formula) -> Proof:
     """Proves the given predicate-logic tautology.
