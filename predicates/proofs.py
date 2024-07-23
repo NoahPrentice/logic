@@ -703,6 +703,8 @@ class Proof:
             """
             assert line_number < len(lines) and lines[line_number] is self
             # Task 9.9
+            # Line is valid iff its formula's propositional skeleton is a propositional tautology
+            return is_propositional_tautology(list(self.formula.propositional_skeleton())[0])
 
     #: An immutable proof line.
     Line = Union[AssumptionLine, MPLine, UGLine, TautologyLine]
@@ -832,6 +834,13 @@ def _axiom_specialization_map_to_schema_instantiation_map(
     for variable in substitution_map:
         assert is_propositional_variable(variable)
     # Task 9.11a
+    new_map = dict()
+    for variable in propositional_specialization_map.keys():
+        new_key = variable.upper()
+        new_formula = Formula.from_propositional_skeleton(propositional_specialization_map[variable], substitution_map)
+        new_map[new_key] = new_formula
+    return new_map
+
 
 def _prove_from_skeleton_proof(formula: Formula,
                                skeleton_proof: PropositionalProof,
