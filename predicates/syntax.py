@@ -1015,3 +1015,11 @@ class Formula:
         for variable in skeleton.variables():
             assert variable in substitution_map
         # Task 9.10
+        if is_propositional_variable(skeleton.root):
+            return substitution_map[skeleton.root]
+        elif is_unary(skeleton.root):
+            return Formula(skeleton.root, Formula.from_propositional_skeleton(skeleton.first, substitution_map))
+        else: # Binary operator
+            return Formula(skeleton.root, 
+                           Formula.from_propositional_skeleton(skeleton.first, substitution_map),
+                           Formula.from_propositional_skeleton(skeleton.second, substitution_map))
