@@ -920,7 +920,9 @@ def prove_tautology(tautology: Formula) -> Proof:
         `PROPOSITIONAL_AXIOMATIC_SYSTEM_SCHEMAS` via only assumption lines
         and MP lines.
     """
-    skeleton = tautology.propositional_skeleton()[0]
+    skeleton, substitution_map = tautology.propositional_skeleton() # Note the change here to also access the substitution map
     assert is_propositional_tautology(skeleton)
     assert skeleton.operators().issubset({'->', '~'})
     # Task 9.12
+    skeleton_proof = prove_propositional_tautology(skeleton, dict()) # Our previous code does all of the work!
+    return _prove_from_skeleton_proof(tautology, skeleton_proof, substitution_map)
