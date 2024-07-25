@@ -241,10 +241,6 @@ class Schema:
             assert is_variable(variable)
         # Task 9.3
         
-        # print("\nWorking through formula " + str(formula))
-        # print("With maps: " + str(constants_and_variables_instantiation_map) + ", " + str(relations_instantiation_map))
-        # print("And bound variables: " + str(bound_variables))
-        # The solution to this task follows the guidelines outlined in the chapter.
         if is_equality(formula.root):
             return formula.substitute(constants_and_variables_instantiation_map, set())
         elif is_relation(formula.root):
