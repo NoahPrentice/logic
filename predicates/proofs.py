@@ -250,7 +250,6 @@ class Schema:
         
             # Nullary invocation of a template relation name
             elif len(list(formula.arguments)) == 0:
-                # print("Found nullary inv. of template relation")
                 free_variables = relations_instantiation_map[formula.root].free_variables()
                 if not free_variables.isdisjoint(bound_variables):
                     raise Schema.BoundVariableError(list(free_variables)[0], formula.root)
@@ -258,7 +257,6 @@ class Schema:
             
             # Unary invocation of a template relation name
             else:
-                # print("Found unary inv. of template relation")
                 free_variables = relations_instantiation_map[formula.root].free_variables()
                 if not free_variables.isdisjoint(bound_variables):
                     raise Schema.BoundVariableError(list(free_variables)[0], formula.root)
