@@ -241,10 +241,8 @@ class Schema:
             assert is_variable(variable)
         # Task 9.3
         
-        if is_equality(formula.root):
-            return formula.substitute(constants_and_variables_instantiation_map, set())
-        elif is_relation(formula.root):
-            # Non-template relation
+        if is_relation(formula.root) or is_equality(formula.root):
+            # Non-template relation or equality
             if formula.root not in relations_instantiation_map.keys():
                 return formula.substitute(constants_and_variables_instantiation_map, set())
         
@@ -591,10 +589,11 @@ class Proof:
             antecedent = lines[self.antecedent_line_number].formula
             conditional = lines[self.conditional_line_number].formula
 
-            return (antecedent == conditional.first) and \
-                (self.formula == conditional.second) and \
-                    (self.antecedent_line_number < line_number) and \
-                        (self.conditional_line_number < line_number)
+            return (conditional.root == "->") and \
+                (antecedent == conditional.first) and \
+                    (self.formula == conditional.second) and \
+                        (self.antecedent_line_number < line_number) and \
+                            (self.conditional_line_number < line_number)
 
     @frozen
     class UGLine:

@@ -927,7 +927,7 @@ class Formula:
         For this purpose, I define a new function which does all of the work but keeps track of
         the assignments along the way. This makes recursion much easier.
         """
-        def build_skeleton(formula, mapping: Mapping[str, Formula]) \
+        def build_skeleton(formula: Formula, mapping: Mapping[str, Formula]) \
               -> Tuple[PropositionalFormula,Mapping[str, Formula]]:
             """
             Computes a propositional skeleton of the current formula.
