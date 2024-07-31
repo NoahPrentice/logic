@@ -308,6 +308,24 @@ class Prover:
         assert instantiation == \
                quantified.statement.substitute({quantified.variable: term})
         # Task 10.1
+        
+        # At self._lines[line_number] is a Line whose formula has the form Ax[phi(x)]. We need to
+        # use the axiom UI to deduce the instantiated assumption (Ax[phi(x)]->phi(term)). Then we use
+        # MP on these two lines to deduce phi(term).
+
+        # First we instantiate UI
+        universal_formula = self._lines[line_number].formula # Ax[phi(x)]
+        template_universal_statement =\
+            universal_formula.statement.substitute({universal_formula.variable: Term('_')}, {}) # phi(_)
+        ui_formula = Formula('->', universal_formula, instantiation) # (Ax[phi(x)]->phi(term))
+        instantiation_map =\
+              {'c': term, 'x': universal_formula.variable, 'R': template_universal_statement} # The map from UI to our instantiation
+        ui_line_number = self.add_instantiated_assumption(ui_formula, Prover.UI, instantiation_map)
+
+        # Then we use MP
+        instantiation_line_number = self.add_mp(instantiation, line_number, ui_line_number)
+        return instantiation_line_number
+
 
     def add_tautological_implication(self, implication: Union[Formula, str],
                                      line_numbers: AbstractSet[int]) -> int:

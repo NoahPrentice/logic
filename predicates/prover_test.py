@@ -50,7 +50,7 @@ def test_add_tautological_implication(debug=False):
     assert str(proof.conclusion) == 'Ax[(Greek(x)->Mortal(x))]'
     assert proof.is_valid()
 
-    proof = prove_syllogism_all_exists()
+    proof = prove_syllogism_all_exists(debug)
     assert str(proof.conclusion) == 'Ex[Mortal(x)]'
     assert proof.is_valid()
 
