@@ -404,6 +404,20 @@ class Prover:
         assert conditional == Formula('->', quantified.statement, consequent)
         # Task 10.3
 
+        # First we use UG on (R(x)->Q()), the formula at line_number2
+        variable = quantified.variable
+        ug_formula = Formula('A', variable, conditional)
+        ug_line_number = self.add_ug(ug_formula, line_number2)
+
+        # Next we instantiate ES = ((Ax[R(x)->Q()]&Ex[R(x)])->Q())
+        # and infer consequent from this as a tautological implication
+        instantiation_map = {'x': variable, 
+                             'R': quantified.statement.substitute({variable: Term('_')}), 
+                             'Q': consequent}
+        es_line_number = self.add_instantiated_assumption(Prover.ES.instantiate(instantiation_map), Prover.ES, instantiation_map)
+        consequent_line_number = self.add_tautological_implication(consequent, {ug_line_number, line_number1, es_line_number})
+        return consequent_line_number
+
     def add_flipped_equality(self, flipped: Union[Formula, str],
                              line_number: int) -> int:
         """Appends to the proof being created by the current prover a sequence
