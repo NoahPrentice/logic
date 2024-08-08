@@ -350,6 +350,25 @@ class Prover:
             assert line_number < len(self._lines)
         # Task 10.2
 
+        # We'll first build the formula that captures the tautological implication 'A implies I'
+        # where 'I' is the given formula "implication" and A is the set of formulas at the given
+        # line numbers.
+        line_numbers = list(line_numbers) 
+        line_numbers.sort(reverse=True) # Put the line_numbers in descending order
+        formula = implication
+        for line_number in line_numbers:
+            formula = Formula('->', self._lines[line_number].formula, formula)
+
+        # This is then added as a tautology, and saved as the first conditional line number. Then
+        # we use MP until we run out of formulas in A.
+        conditional_line_number = self.add_tautology(formula)
+        line_numbers.sort() # Put the line_numbers in ascending order
+        for line_number in line_numbers:
+            new_conditional_line_number = self.add_mp(formula.second, line_number, conditional_line_number)
+            conditional_line_number = new_conditional_line_number
+            formula = formula.second
+        return len(self._lines) - 1
+
     def add_existential_derivation(self, consequent: Union[Formula, str],
                                    line_number1: int, line_number2: int) -> int:
         """Appends to the proof being created by the current prover a sequence
