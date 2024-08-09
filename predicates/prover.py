@@ -513,6 +513,20 @@ class Prover:
         assert original.free_variables().issuperset(substitution_map.keys())
         assert instantiation == original.substitute(substitution_map)
         # Task 10.7
+        
+        free_vars = list(original.free_variables().intersection(substitution_map))
+        last_line_number = line_number
+        for var in free_vars:
+            # Use UG
+            non_quantified = self._lines[last_line_number].formula
+            last_line_number = self.add_ug(Formula('A', var, non_quantified), last_line_number)
+            # Instantiate
+            quantified = Formula('A', var, non_quantified)
+            last_line_number = self.add_universal_instantiation(
+                quantified.statement.substitute({var:substitution_map[var]}, {}), 
+                last_line_number, 
+                substitution_map[var])
+        return last_line_number
 
     def add_substituted_equality(self, substituted: Union[Formula, str],
                                  line_number: int,
