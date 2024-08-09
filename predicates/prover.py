@@ -445,6 +445,21 @@ class Prover:
                                          flipped.arguments[0]])
         # Task 10.6
 
+        # Want to derive d=c given c=d. Start by adding c=c.
+        d = flipped.arguments[0]
+        c = flipped.arguments[1]
+        rx_line_number = self.add_instantiated_assumption(
+            Prover.RX.instantiate({'c':c}), Prover.RX, {'c':c})
+        
+        # Add (c=d->(c=c->d=c))
+        me_instantiation_map = {'c':c, 'd':d, 'R':Formula('=', [Term('_'), c])}
+        me_line_number = self.add_instantiated_assumption(
+            Prover.ME.instantiate(me_instantiation_map), Prover.ME, me_instantiation_map) 
+        # Use MP twice
+        mp_line_number = self.add_mp(
+            self._lines[me_line_number].formula.second, line_number, me_line_number) # (c=c->d=c)
+        return self.add_mp(self._lines[mp_line_number].formula.second, rx_line_number, mp_line_number) # d=c
+
     def add_free_instantiation(self, instantiation: Union[Formula, str],
                                line_number: int,
                                substitution_map:
