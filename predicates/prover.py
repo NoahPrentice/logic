@@ -588,6 +588,21 @@ class Prover:
                              parametrized_term.substitute(
                                  {'_': equality.arguments[1]})])
         # Task 10.8
+        # Equality is a formula of the form c=d. First we instantiate ME to get
+        # (c=d->(phi(c)=phi(c)->phi(c)=phi(d)).
+        c = equality.arguments[0]
+        d = equality.arguments[1]
+        phi_c = parametrized_term.substitute({'_':c}, {}) # phi(c)
+        phi_d = parametrized_term.substitute({'_':d}, {}) # phi(d)
+        me_R = Formula('=', [phi_c, parametrized_term]) # R(_) = phi(c)=phi(_)
+        me_instantiation_map = {'c':c, 'd':d, 'R':me_R}
+        me_line_number = self.add_instantiated_assumption(
+            Prover.ME.instantiate(me_instantiation_map), Prover.ME, me_instantiation_map)
+
+        # Now use MP twice, using an instantiation of RX (phi(c)=phi(c)).
+        mp_line_number = self.add_mp(self._lines[me_line_number].formula.second, line_number, me_line_number)
+        antecedent_line_number = self.add_instantiated_assumption(Prover.RX.instantiate({'c':phi_c}), Prover.RX, {'c':phi_c})
+        return self.add_mp(self._lines[mp_line_number].formula.second, antecedent_line_number, mp_line_number)
 
     def _add_chaining_of_two_equalities(self, line_number1: int,
                                         line_number2: int) -> int:
