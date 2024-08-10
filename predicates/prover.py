@@ -319,7 +319,7 @@ class Prover:
             universal_formula.statement.substitute({universal_formula.variable: Term('_')}, {}) # phi(_)
         ui_formula = Formula('->', universal_formula, instantiation) # (Ax[phi(x)]->phi(term))
         instantiation_map =\
-              {'c': term, 'x': universal_formula.variable, 'R': template_universal_statement} # The map from UI to our instantiation
+              {'c': term, 'x': universal_formula.variable, 'R': template_universal_statement} 
         ui_line_number = self.add_instantiated_assumption(ui_formula, Prover.UI, instantiation_map)
 
         # Then we use MP
@@ -600,9 +600,12 @@ class Prover:
             Prover.ME.instantiate(me_instantiation_map), Prover.ME, me_instantiation_map)
 
         # Now use MP twice, using an instantiation of RX (phi(c)=phi(c)).
-        mp_line_number = self.add_mp(self._lines[me_line_number].formula.second, line_number, me_line_number)
-        antecedent_line_number = self.add_instantiated_assumption(Prover.RX.instantiate({'c':phi_c}), Prover.RX, {'c':phi_c})
-        return self.add_mp(self._lines[mp_line_number].formula.second, antecedent_line_number, mp_line_number)
+        mp_line_number = self.add_mp(
+            self._lines[me_line_number].formula.second, line_number, me_line_number)
+        antecedent_line_number = self.add_instantiated_assumption(
+            Prover.RX.instantiate({'c':phi_c}), Prover.RX, {'c':phi_c})
+        return self.add_mp(
+            self._lines[mp_line_number].formula.second, antecedent_line_number, mp_line_number)
 
     def _add_chaining_of_two_equalities(self, line_number1: int,
                                         line_number2: int) -> int:
@@ -635,6 +638,23 @@ class Prover:
         assert is_equality(equality2.root)
         assert equality1.arguments[1] == equality2.arguments[0]
         # Task 10.9a
+
+        # If equality1 is x=y and equality2 is y=z, then we first deduce y=x.
+        x = equality1.arguments[0]
+        y = equality1.arguments[1]
+        z = equality2.arguments[1]
+        flipped_line_number = self.add_flipped_equality(
+            Formula('=', [y, x]), line_number1)
+        
+        # Then we instantiate ME to get (y=x->(y=z->x=z)) and use MP twice.
+        me_instantiation_map = {'c':y, 'd':x, 'R':Formula('=', [Term('_'), z])}
+        me_line_number = self.add_instantiated_assumption(
+            Prover.ME.instantiate(me_instantiation_map), Prover.ME, me_instantiation_map)
+        mp_line_number = self.add_mp(
+            self._lines[me_line_number].formula.second, flipped_line_number, me_line_number)
+        return self.add_mp(self._lines[mp_line_number].formula.second, line_number2, mp_line_number)
+        
+
 
     def add_chained_equality(self, chained: Union[Formula, str],
                              line_numbers: Sequence[int]) -> int:
@@ -680,3 +700,13 @@ class Prover:
             current_term = equality.arguments[1]
         assert chained.arguments[1] == current_term
         # Task 10.9b
+        # Because our chaining of the first two equalities has a different structure than
+        # the rest of them, we use them first.
+        recent_equality = self._add_chaining_of_two_equalities(line_numbers[0], line_numbers[1])
+        # For the rest, we just loop through the equalities in order. We will have just deduced
+        # (at recent_equality) something like x=y, and the next equality given in line_numbers
+        # will have something like y=z. So we just use 10.9a and update recent_equality.
+        for i in range(2, len(line_numbers)):
+            next_equality = line_numbers[i]
+            recent_equality = self._add_chaining_of_two_equalities(recent_equality, next_equality)
+        return recent_equality
