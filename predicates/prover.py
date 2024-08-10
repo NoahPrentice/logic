@@ -513,19 +513,36 @@ class Prover:
         assert original.free_variables().issuperset(substitution_map.keys())
         assert instantiation == original.substitute(substitution_map)
         # Task 10.7
-        
+        # Formula original is similar to plus(x,y)=plus(y,x). We turn this first
+        # into an intermediate formula with different variables than those that
+        # need to be replaced.
         free_vars = list(original.free_variables().intersection(substitution_map))
+        new_vars = {var: next(fresh_variable_name_generator) for var in free_vars}
+        new_substitution_map = {new_vars[var]:substitution_map[var] for var in free_vars}
+
         last_line_number = line_number
         for var in free_vars:
-            # Use UG
+            # Generalize, e.g., Ax[plus(x,y)=plus(y,x)]
             non_quantified = self._lines[last_line_number].formula
-            last_line_number = self.add_ug(Formula('A', var, non_quantified), last_line_number)
-            # Instantiate
             quantified = Formula('A', var, non_quantified)
+            last_line_number = self.add_ug(quantified, last_line_number)
+            # Instantiate with new variable, e.g., plus(z1,y)=plus(y,z1)
             last_line_number = self.add_universal_instantiation(
-                quantified.statement.substitute({var:substitution_map[var]}, {}), 
+                quantified.statement.substitute({var:Term(new_vars[var])}, {}), 
                 last_line_number, 
-                substitution_map[var])
+                new_vars[var])
+        
+        # Now we have the intermediate formula, e.g., plus(z1,z2)=plus(z2,z1) which we substitute as desired.
+        for var in new_substitution_map:
+            # Generalize, e.g., Az1[plus(z1,z2)=plus(z2,z1)]
+            non_quantified = self._lines[last_line_number].formula
+            quantified = Formula('A', var, non_quantified)
+            last_line_number = self.add_ug(quantified, last_line_number)
+            # Instantiate as desired, e.g., plus(f(y),z2)=plus(z2,f(y))
+            last_line_number = self.add_universal_instantiation(
+                quantified.statement.substitute({var:new_substitution_map[var]}, {}), 
+                last_line_number, 
+                new_substitution_map[var])
         return last_line_number
 
     def add_substituted_equality(self, substituted: Union[Formula, str],
