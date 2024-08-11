@@ -710,3 +710,49 @@ class Prover:
             next_equality = line_numbers[i]
             recent_equality = self._add_chaining_of_two_equalities(recent_equality, next_equality)
         return recent_equality
+
+    def cancel_in_group(self, line_number) -> int:
+        """
+        Works only in proofs where the group axioms are assumed. Takes a line
+        of the form plus(a,c)=a and adds a sequence of justified lines, the
+        last of which has formula c=0.
+        """
+        prover = self
+        equality = self._lines[line_number].formula
+        a = equality.arguments[1]
+        c = equality.arguments[0].arguments[1]
+        map = {'a':a,'c':c}
+        step2 = prover.add_assumption('plus(minus(x),x)=0')
+        step3 = prover.add_assumption('plus(plus(x,y),z)=plus(x,plus(y,z))')
+        step4 = prover.add_assumption('plus(0,x)=x')
+
+        # We take the formula in step 1, add minus(a) to both sides (by substitution), and then cancel the a's.
+        step5 = prover.add_substituted_equality(
+            Formula.parse('plus(minus(a),plus(a,c))=plus(minus(a),a)').substitute(map, {}), 
+            line_number, 
+            Term.parse('plus(minus(a),_)').substitute(map, {}))
+        step6 = prover.add_free_instantiation(Formula.parse('plus(minus(a),a)=0').substitute(map, {}), step2, {'x':a})
+        step7 = prover._add_chaining_of_two_equalities(step5, step6) # plus(minus(a),plus(a,c))=0
+
+        # At this point, we've cancelled the a on the right to get 0, but we have to do the left side.
+        step8 = prover.add_free_instantiation(
+            Formula.parse('plus(plus(minus(a),a),c)=plus(minus(a),plus(a,c))').substitute(map, {}),
+            step3, 
+            {'x':Term.parse('minus(a)').substitute(map, {}),'y':a,'z':c})
+        step9 = prover._add_chaining_of_two_equalities(step8, step7) # plus(plus(minus(a),a),c)=0
+        step10 = prover.add_substituted_equality(
+            Formula.parse('plus(plus(minus(a),a),c)=plus(0,c)').substitute(map, {}), 
+            step6, 
+            Term.parse('plus(_,c)').substitute(map, {}))
+        step11 = prover.add_flipped_equality(
+            Formula.parse('plus(0,c)=plus(plus(minus(a),a),c)').substitute(map, {}), 
+            step10)
+        step12 = prover._add_chaining_of_two_equalities(step11, step9) # plus(0,c)=0
+        step13 = prover.add_free_instantiation(
+            Formula.parse('plus(0,c)=c').substitute(map, {}), 
+            step4, 
+            {'x':c})
+        step14 = prover.add_flipped_equality(
+            Formula.parse('c=plus(0,c)').substitute(map, {}), 
+            step13)
+        return prover._add_chaining_of_two_equalities(step14, step12) # c=0
