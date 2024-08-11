@@ -509,9 +509,28 @@ def prove_russell_paradox(print_as_proof_forms: bool = False) -> Proof:
     """
     prover = Prover({COMPREHENSION_AXIOM}, print_as_proof_forms)
     # Task 10.13
-    instantiated_comprehension_statement = Formula.parse('((In(x,x)->~In(x,x))&(~In(x,x)->In(x,x)))')
-    step1 = prover.add_tautology(Formula('->', instantiated_comprehension_statement, Formula.parse('(z=z&~z=z)')))
-    step2 = prover.add_ug(Formula('A', 'x', prover._lines[step1].formula))
+
+    # Instantiate the comprehension axiom with R(x) = ~In(x,x).
+    step1 = prover.add_instantiated_assumption(
+        COMPREHENSION_AXIOM.instantiate({'R':Formula.parse('~In(_,_)')}), 
+        COMPREHENSION_AXIOM, 
+        {'R':Formula.parse('~In(_,_)')})
+    
+    # Now use UI to get (Ax[((In(x,y)->~In(x,x))&(~In(x,x)->In(x,y)))]->((In(y,y)->~In(y,y))&(~In(y,y)->In(y,y))))
+    generalized_comprehension_statement = prover._lines[step1].formula.statement # Ax[((In(x,y)->~In(x,x))&(~In(x,x)->In(x,y)))]
+    ui_map = {'R':generalized_comprehension_statement.statement.substitute({'x':Term('_')}, {}), 'x':'x', 'c':Term('y')}
+    step2 = prover.add_instantiated_assumption(
+        Prover.UI.instantiate(ui_map), Prover.UI, ui_map)
+    
+    # The consequent of the above formula is a contradiction, so it is a tautology that it implies our desired conclusion.
+    step3 = prover.add_tautology('(((In(y,y)->~In(y,y))&(~In(y,y)->In(y,y)))->(z=z&~z=z))')
+    step4 = prover.add_tautological_implication(
+        Formula('->', generalized_comprehension_statement, Formula.parse('(z=z&~z=z)')), {step2, step3})
+    
+    # Finish with an existential derivation: 
+    # Ey[Ax[((In(x,y)->~In(x,x))&(~In(x,x)->In(x,y)))]] and (Ax[((In(x,y)->~In(x,x))&(~In(x,x)->In(x,y)))]->(z=z&~z=z))
+    # imply (z=z&~z=z).
+    step5 = prover.add_existential_derivation(Formula.parse('(z=z&~z=z)'), step1, step4)
     return prover.qed()
 
 def _prove_not_exists_not_implies_all(variable: str, formula: Formula,
