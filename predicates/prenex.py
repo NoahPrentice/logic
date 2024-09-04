@@ -151,6 +151,7 @@ def is_in_prenex_normal_form(formula: Formula) -> bool:
     # The statement of quantifications must also be in prenex normal form, so recurse.
     return is_in_prenex_normal_form(formula.statement)
 
+
 def equivalence_of(formula1: Formula, formula2: Formula) -> Formula:
     """States the equivalence of the two given formulas as a formula.
 
@@ -252,6 +253,122 @@ def _uniquely_rename_quantified_variables(formula: Formula) -> Tuple[Formula, Pr
     for variable in formula.variables():
         assert not is_z_and_number(variable)
     # Task 11.5
+
+    assumptions = set(Prover.AXIOMS).union(set(ADDITIONAL_QUANTIFICATION_AXIOMS))
+
+    if is_quantifier_free(formula):
+        # Since free variables won't appear in calls to fresh_variable_name_generator,
+        # we can ignore them and only deal with bound variables.
+        proof = Prover(assumptions)
+        proof.add_tautology(equivalence_of(formula, formula))
+        return (formula, proof.qed())
+
+    elif is_quantifier(formula.root):
+        # If the formula is a quantification, then it is of the form Qx[phi(x)] for
+        # some quantifier Q, parametrized formula phi, and variable name x.
+        Q = formula.root
+        x = formula.variable
+        phi = formula.statement
+
+        # We start by getting a formula equivalent to phi(x) with unique quantified
+        # variable names. I call this psi(x). We also get a proof of
+        # equivalence_of(phi(x), psi(x)). We now replace 'x' in psi(x) with a new
+        # variable, say y, and quantify it to get Qy[psi(y)], the needed formula.
+        psi, phi_equivalent_to_psi_proof = _uniquely_rename_quantified_variables(
+            formula.statement
+        )
+        y = next(fresh_variable_name_generator)
+        psi_y = psi.substitute({x: Term(y)})
+        Qy_psi_y = Formula(formula.root, y, psi_y)
+
+        # Now we have the equivalent formula, but we need to prove the equivalence. We
+        # (i) take the proof of equivalence_of(phi(x), psi(x)), (ii) use an instance of
+        # quantification axiom 15 (for universal quantification) or 16 (for existential
+        # quantification), and (iii) deduce equivalence_of(Qx[phi(x)], Qy[psi(y)])
+        # as a tautological implication. This final equivalence is what we need.
+
+        # (i) Take the proof of equivalence_of(phi(x), psi(x))
+        proof = Prover(assumptions)
+        phi_psi_equivalence_line_number = proof.add_proof(
+            phi_equivalent_to_psi_proof.conclusion, phi_equivalent_to_psi_proof
+        )
+
+        # (ii) Instantiate the appropriate quantification axiom
+        parametrized_phi = phi.substitute({x: Term("_")})
+        parametrized_psi = psi.substitute({x: Term("_")})
+        axiom_instantiation_map = {
+            "x": x,
+            "y": y,
+            "R": parametrized_phi,
+            "Q": parametrized_psi,
+        }
+        if Q == "A":
+            axiom = ADDITIONAL_QUANTIFICATION_AXIOMS[14]
+        else:
+            axiom = ADDITIONAL_QUANTIFICATION_AXIOMS[15]
+        axiom_line_number = proof.add_instantiated_assumption(
+            axiom.instantiate(axiom_instantiation_map), axiom, axiom_instantiation_map
+        )
+
+        # (iii) Deduce the desired equivalence as a tautological implication.
+        proof.add_tautological_implication(
+            equivalence_of(formula, Qy_psi_y),
+            {phi_psi_equivalence_line_number, axiom_line_number},
+        )
+        return (Qy_psi_y, proof.qed())
+
+    elif is_unary(formula.root):
+        # If the formula's root is a unary operator, then the formula looks like *phi
+        # for some unary operator * and some formula phi. We recursively find an
+        # equivalent formula, psi, for phi, so that *phi is equivalent to *psi.
+        star = formula.root
+        phi = formula.first
+
+        psi, phi_equivalent_to_psi_proof = _uniquely_rename_quantified_variables(phi)
+        star_psi = Formula(star, psi)
+
+        # With our equivalent formula, we just need a proof of equivalence. As with
+        # quantification, we just take the proof of equivalence_of(phi, psi) and deduce
+        # equivalence_of(*phi, *psi) as a tautological implication.
+        proof = Prover(assumptions)
+        psi_phi_equivalence = proof.add_proof(
+            equivalence_of(phi, psi), phi_equivalent_to_psi_proof
+        )
+        proof.add_tautological_implication(
+            equivalence_of(formula, star_psi), {psi_phi_equivalence}
+        )
+        return (star_psi, proof.qed())
+
+    elif is_binary(formula.root):
+        # In this case, the formula is (phi1*phi2) for some binary operator * and some
+        # formulas phi1 and phi2. As before, we find the equivalent of this formula
+        # recursively, and then proof the equivalence as a tautological implication of
+        # the equivalences for phi1 and phi2.
+        star = formula.root
+        phi1 = formula.first
+        phi2 = formula.second
+
+        psi1, phi1_equivalent_to_psi1_proof = _uniquely_rename_quantified_variables(
+            phi1
+        )  # psi1 is the equivalent of phi1
+        psi2, phi2_equivalent_to_psi2_proof = _uniquely_rename_quantified_variables(
+            phi2
+        )  # psi2 is the equivalent of phi2
+        psi1_star_psi2 = Formula(star, psi1, psi2)
+
+        # Building the proof of equivalence_of((phi1*phi2), (psi1*psi2))
+        proof = Prover(assumptions)
+        phi1_psi1_equivalence = proof.add_proof(
+            equivalence_of(phi1, psi1), phi1_equivalent_to_psi1_proof
+        )
+        phi2_psi2_equivalence = proof.add_proof(
+            equivalence_of(phi2, psi2), phi2_equivalent_to_psi2_proof
+        )
+        proof.add_tautological_implication(
+            equivalence_of(formula, psi1_star_psi2),
+            {phi1_psi1_equivalence, phi2_psi2_equivalence},
+        )
+        return (psi1_star_psi2, proof.qed())
 
 
 def _pull_out_quantifications_across_negation(
