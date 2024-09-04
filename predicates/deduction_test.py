@@ -70,7 +70,7 @@ def test_remove_assumption(debug=False):
                   "' for the following proof:\n" + str(proof))
         assumption1 = Formula.parse(assumption1)
         assumption2 = Formula.parse(assumption2)
-        result1 = remove_assumption(proof, assumption1)
+        result1 = remove_assumption(proof, assumption1, debug)
         assert result1.assumptions == Prover.AXIOMS.union({Schema(assumption2)})
         assert result1.conclusion == Formula('->', assumption1,
                                              proof.conclusion)
@@ -80,7 +80,7 @@ def test_remove_assumption(debug=False):
             print("Testing remove_assumption with assumption '" +
                   str(assumption2) + "'for the following proof:\n" +
                   str(result1))
-        result2 = remove_assumption(result1, assumption2)
+        result2 = remove_assumption(result1, assumption2, debug)
         assert result2.assumptions == Prover.AXIOMS
         assert result2.conclusion == Formula('->', assumption2,
                                              Formula('->', assumption1,

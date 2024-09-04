@@ -175,3 +175,18 @@ def prove_by_way_of_contradiction(proof: Proof, assumption: Formula) -> Proof:
         if isinstance(line, Proof.UGLine):
             assert line.formula.variable not in assumption.free_variables()
     # Task 11.2
+
+    # As in propositional logic, we use the deduction theorem to prove
+    # (assumption->~tautology). ~assumption is a tautological implication of this.
+    new_assumptions = set(proof.assumptions)
+    new_assumptions.remove(Schema(assumption))
+    new_proof = Prover(new_assumptions)
+
+    assumption_implies_contradiction = new_proof.add_proof(  # (assumption->~tautology)
+        Formula("->", assumption, proof.conclusion),
+        remove_assumption(proof, assumption),
+    )
+    new_proof.add_tautological_implication(
+        Formula("~", assumption), {assumption_implies_contradiction}
+    )
+    return new_proof.qed()
