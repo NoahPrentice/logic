@@ -363,24 +363,28 @@ class Term:
         for variable in forbidden_variables:
             assert is_variable(variable)
         # Task 9.1
-
-        # First we check if any forbidden substitutions are requested
-        for key in substitution_map.keys():
-            value = substitution_map[key]
-            bad_vars = list(value.variables().intersection(forbidden_variables))
-            if len(bad_vars) != 0:
-                raise ForbiddenVariableError(bad_vars[0])
-            
-        # If not, then we make the substitutions, using recursion for functions invocations.
+        
+        def forbidden_variables_in_term(term: Term, forbidden_vars: AbstractSet[str]):
+            if is_function(term.root):
+                for arg in term.arguments:
+                    forbidden_variables_in_term(arg, forbidden_vars)
+            else:
+                if term.root in forbidden_vars:
+                    raise ForbiddenVariableError(term.root)
+        
+        # if self.root in substitution_map:
+        #     for construct in substitution_map:
+        #         forbidden_variables_in_term(substitution_map[construct], forbidden_variables)
         if is_constant(self.root) or is_variable(self.root):
             if self.root not in substitution_map:
                 return self
             else:
+                forbidden_variables_in_term(substitution_map[self.root], forbidden_variables)
                 return substitution_map[self.root]
         else: # Function invocation
             new_args = []
             for arg in self.arguments:
-                new_args.append(arg.substitute(substitution_map))
+                new_args.append(arg.substitute(substitution_map, forbidden_variables))
             return Term(self.root, new_args)
 
 @lru_cache(maxsize=100) # Cache the return value of is_equality
