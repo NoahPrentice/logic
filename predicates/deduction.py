@@ -73,12 +73,12 @@ def remove_assumption(
         #    (instantiated) assumption, and (ii) deduce (phi->xi) as a tautological
         #    implication of xi.
 
-        # Case 2: xi is phi or xi is a tautology
+        # Case 1: xi is phi or xi is a tautology
         if (xi == phi) or (isinstance(line, Proof.TautologyLine)):
             # deduce (phi->xi) as a tautology.
             new_line = new_proof.add_tautology(new_form)
 
-        # Case 3: xi is deduced via MP
+        # Case 2: xi is deduced via MP
         elif isinstance(line, Proof.MPLine):
             antecedent = lines[line.antecedent_line_number].formula  # a
             conditional = lines[line.conditional_line_number].formula  # (a->xi)
@@ -100,7 +100,7 @@ def remove_assumption(
                 new_form, {new_antecedent_line_number, new_conditional_line_number}
             )
 
-        # Case 4: xi is deduced via UG
+        # Case 3: xi is deduced via UG
         elif isinstance(line, Proof.UGLine):
             psi = xi.statement  # psi(x)
             x = xi.variable
