@@ -578,7 +578,7 @@ def _pull_out_quantifications_from_left_across_binary_operator(
     psi = formula.second
     phi_star_psi = Formula(star, phi, psi)
     x = formula.first.variable
-    proof = Prover(assumptions, True)
+    proof = Prover(assumptions)
 
     # (i) Recurse to find an equivalent formula, rho(x), for (phi(x)*psi)
     rho, phi_star_psi_equivalent_to_rho_proof = (
@@ -637,7 +637,7 @@ def _pull_out_quantifications_from_left_across_binary_operator(
         axiom_15_or_16,
         axiom_15_or_16_instantiation_map,
     )
-    
+
     Q_prime_equivalence = axiom_15_or_16.instantiate(
         axiom_15_or_16_instantiation_map
     ).second
@@ -701,6 +701,100 @@ def _pull_out_quantifications_from_right_across_binary_operator(
     assert has_uniquely_named_variables(formula)
     assert is_binary(formula.root)
     # Task 11.7b
+
+    assumptions = set(Prover.AXIOMS).union(set(ADDITIONAL_QUANTIFICATION_AXIOMS))
+
+    # Base case: n = 0
+    if not is_quantifier(formula.second.root):
+        # In this case, our formula stays the same, so the equivalence is a tautology.
+        proof = Prover(assumptions)
+        proof.add_tautology(equivalence_of(formula, formula))
+        return (formula, proof.qed())
+
+    # Recursive case: n > 0
+    # Then the formula has the form (psi*Qx[phi(x)]) for some quantifier Q, binary
+    # operator *, parametrized formula phi, formula psi, and variable name x. We
+    #   (i) recurse to find an equivalent formula, rho(x), for (psi*phi(x)) and a proof
+    #       of the equivalence.
+    #   (ii) construct the new formula Qx[rho(x)].
+    #   (iii) instantiate a new axiom to pull out Q across * and prove
+    #       equivalence_of((psi*Qx[phi(x)]), Qx[(psi*phi(x))])
+    #   (iv) instantiate new axiom 15 or 16 and the proof from (i) to prove
+    #       equivalence_of(Qx[(psi*phi(x))], Qx[rho(x)]), and
+    #   (v) use a tautological implication on the equivalences from (iii) and (iv) to
+    #       deduce equivalence_of((psi*Qx[phi(x)]), Qx[rho(x)]), as desired.
+    Q = formula.second.root
+    star = formula.root
+    phi = formula.second.statement
+    psi = formula.first
+    psi_star_phi = Formula(star, psi, phi)
+    x = formula.second.variable
+    proof = Prover(assumptions)
+
+    # (i) Recurse to find an equivalent formula, rho(x), for (psi*phi(x))
+    rho, psi_star_phi_equivalent_to_rho_proof = (
+        _pull_out_quantifications_from_right_across_binary_operator(psi_star_phi)
+    )
+    psi_star_phi_rho_equivalence_line_number = proof.add_proof(
+        equivalence_of(psi_star_phi, rho), psi_star_phi_equivalent_to_rho_proof
+    )
+
+    # (ii) Construct the new formula Qx[rho(x)]
+    Q_x_rho = Formula(Q, x, rho)
+
+    # (iii) Use a new axiom to get equivalence_of((psi*Qx[phi(x)]), Qx[(psi*phi(x))]),
+    # which I call "pull_out_equivalence."
+    pull_out_axiom_dict = {
+        "&A": ADDITIONAL_QUANTIFICATION_AXIOMS[4],
+        "&E": ADDITIONAL_QUANTIFICATION_AXIOMS[5],
+        "|A": ADDITIONAL_QUANTIFICATION_AXIOMS[8],
+        "|E": ADDITIONAL_QUANTIFICATION_AXIOMS[9],
+        "->A": ADDITIONAL_QUANTIFICATION_AXIOMS[12],
+        "->E": ADDITIONAL_QUANTIFICATION_AXIOMS[13],
+    }
+    pull_out_axiom = pull_out_axiom_dict[star + Q]
+
+    parametrized_phi = phi.substitute({x: Term("_")})
+    pull_out_axiom_instantiation_map = {"x": x, "Q": psi, "R": parametrized_phi}
+    pull_out_equivalence_line_number = proof.add_instantiated_assumption(
+        pull_out_axiom.instantiate(pull_out_axiom_instantiation_map),
+        pull_out_axiom,
+        pull_out_axiom_instantiation_map,
+    )
+
+    # (iv) Use axiom 15 or 16 and the proof from (i) to prove "Q_equivalence",
+    # equivalence_of(Qx[(psi*phi(x))], Qx[rho(x)]).
+    if Q == "A":
+        axiom_15_or_16 = ADDITIONAL_QUANTIFICATION_AXIOMS[14]
+    else:
+        axiom_15_or_16 = ADDITIONAL_QUANTIFICATION_AXIOMS[15]
+    parametrized_psi_star_phi = psi_star_phi.substitute({x: Term("_")})
+    parametrized_rho = rho.substitute({x: Term("_")})
+    axiom_15_or_16_instantiation_map = {
+        "x": x,
+        "y": x,
+        "R": parametrized_psi_star_phi,
+        "Q": parametrized_rho,
+    }
+    axiom_15_or_16_line_number = proof.add_instantiated_assumption(
+        axiom_15_or_16.instantiate(axiom_15_or_16_instantiation_map),
+        axiom_15_or_16,
+        axiom_15_or_16_instantiation_map,
+    )
+
+    Q_equivalence = axiom_15_or_16.instantiate(axiom_15_or_16_instantiation_map).second
+    Q_equivalence_line_number = proof.add_tautological_implication(
+        Q_equivalence,
+        {psi_star_phi_rho_equivalence_line_number, axiom_15_or_16_line_number},
+    )
+
+    # (v) Deduce equivalence_of((Qx[phi(x)]*psi), Q'x[rho(x)]) as a tautological
+    # implication of the equivalences in (iii) and (iv).
+    proof.add_tautological_implication(
+        equivalence_of(formula, Q_x_rho),
+        {pull_out_equivalence_line_number, Q_equivalence_line_number},
+    )
+    return (Q_x_rho, proof.qed())
 
 
 def _pull_out_quantifications_across_binary_operator(
