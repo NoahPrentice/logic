@@ -424,18 +424,19 @@ def _pull_out_quantifications_across_negation(
         proof = Prover(assumptions)
         proof.add_tautology(equivalence_of(formula, formula))
         return (formula, proof.qed())
-
-    # Recursive case: n > 0
-    # Then the formula has the form ~Qx[phi(x)] for some quantifier Q, some parametrized
-    # formula phi and some variable name x. We
-    #   (i) recurse to find an equivalent formula, rho, for ~phi and a proof of
-    #       equivalence_of(~phi(x), rho(x)),
-    #   (ii) construct the new formula Q'x[rho(x)], where Q' = A if Q = E and vice versa,
-    #   (iii) use new axiom 1 or 2 to prove equivalence_of(~Qx[phi(x)], Q'x[~phi(x)]),
-    #   (iv) instantiate new axiom 15 or 16 and use the proof from (i) to prove
-    #       equivalence_of(Q'x[~phi(x)], Q'x[rho(x)]), and
-    #   (v) use a tautological implication on the equivalences from (iii) and (iv) to
-    #       deduce equivalence_of(~Qx[phi(x)], Q'x[rho(x)]), as desired.
+    """
+    Recursive case: n > 0
+    Then the formula has the form ~Qx[phi(x)] for some quantifier Q, some parametrized
+    formula phi and some variable name x. We
+      (i) recurse to find an equivalent formula, rho, for ~phi and a proof of
+          equivalence_of(~phi(x), rho(x)),
+      (ii) construct the new formula Q'x[rho(x)], where Q' = A if Q = E and vice versa,
+      (iii) use new axiom 1 or 2 to prove equivalence_of(~Qx[phi(x)], Q'x[~phi(x)]),
+      (iv) instantiate new axiom 15 or 16 and use the proof from (i) to prove
+          equivalence_of(Q'x[~phi(x)], Q'x[rho(x)]), and
+      (v) use a tautological implication on the equivalences from (iii) and (iv) to
+          deduce equivalence_of(~Qx[phi(x)], Q'x[rho(x)]), as desired.
+    """
     Q = formula.first.root
     x = formula.first.variable
     phi = formula.first.statement
@@ -559,19 +560,21 @@ def _pull_out_quantifications_from_left_across_binary_operator(
         proof.add_tautology(equivalence_of(formula, formula))
         return (formula, proof.qed())
 
+    """
     # Recursive case: n > 0
-    # Then the formula has the form (Qx[phi(x)]*psi) for some quantifier Q, binary
-    # operator *, parametrized formula phi, formula psi, and variable name x. We
-    #   (i) recurse to find an equivalent formula, rho(x), for (phi(x)*psi) and a proof
-    #       of the equivalence.
-    #   (ii) construct the new formula Q'x[rho(x)]. Q' will be Q unless * is ->, in which
-    #       case you swap the quantifier (so Q' is A if Q is E and vice versa).
-    #   (iii) instantiate a new axiom to pull out Q across * and prove
-    #       equivalence_of((Qx[phi(x)]*psi), Q'x[(phi(x)*psi)])
-    #   (iv) instantiate new axiom 15 or 16 and the proof from (i) to prove
-    #       equivalence_of(Q'x[(phi(x)*psi)], Q'x[rho(x)]), and
-    #   (v) use a tautological implication on the equivalences from (iii) and (iv) to
-    #       deduce equivalence_of((Qx[phi(x)]*psi), Q'x[rho(x)]), as desired.
+    Then the formula has the form (Qx[phi(x)]*psi) for some quantifier Q, binary
+    operator *, parametrized formula phi, formula psi, and variable name x. We
+      (i) recurse to find an equivalent formula, rho(x), for (phi(x)*psi) and a proof
+          of the equivalence.
+      (ii) construct the new formula Q'x[rho(x)]. Q' will be Q unless * is ->, in which
+          case you swap the quantifier (so Q' is A if Q is E and vice versa).
+      (iii) instantiate a new axiom to pull out Q across * and prove
+          equivalence_of((Qx[phi(x)]*psi), Q'x[(phi(x)*psi)])
+      (iv) instantiate new axiom 15 or 16 and the proof from (i) to prove
+          equivalence_of(Q'x[(phi(x)*psi)], Q'x[rho(x)]), and
+      (v) use a tautological implication on the equivalences from (iii) and (iv) to
+          deduce equivalence_of((Qx[phi(x)]*psi), Q'x[rho(x)]), as desired.
+    """
     Q = formula.first.root
     star = formula.root
     phi = formula.first.statement
@@ -710,19 +713,20 @@ def _pull_out_quantifications_from_right_across_binary_operator(
         proof = Prover(assumptions)
         proof.add_tautology(equivalence_of(formula, formula))
         return (formula, proof.qed())
-
-    # Recursive case: n > 0
-    # Then the formula has the form (psi*Qx[phi(x)]) for some quantifier Q, binary
-    # operator *, parametrized formula phi, formula psi, and variable name x. We
-    #   (i) recurse to find an equivalent formula, rho(x), for (psi*phi(x)) and a proof
-    #       of the equivalence.
-    #   (ii) construct the new formula Qx[rho(x)].
-    #   (iii) instantiate a new axiom to pull out Q across * and prove
-    #       equivalence_of((psi*Qx[phi(x)]), Qx[(psi*phi(x))])
-    #   (iv) instantiate new axiom 15 or 16 and the proof from (i) to prove
-    #       equivalence_of(Qx[(psi*phi(x))], Qx[rho(x)]), and
-    #   (v) use a tautological implication on the equivalences from (iii) and (iv) to
-    #       deduce equivalence_of((psi*Qx[phi(x)]), Qx[rho(x)]), as desired.
+    """
+    Recursive case: n > 0
+    Then the formula has the form (psi*Qx[phi(x)]) for some quantifier Q, binary
+    operator *, parametrized formula phi, formula psi, and variable name x. We
+      (i) recurse to find an equivalent formula, rho(x), for (psi*phi(x)) and a proof
+          of the equivalence.
+      (ii) construct the new formula Qx[rho(x)].
+      (iii) instantiate a new axiom to pull out Q across * and prove
+          equivalence_of((psi*Qx[phi(x)]), Qx[(psi*phi(x))])
+      (iv) instantiate new axiom 15 or 16 and the proof from (i) to prove
+          equivalence_of(Qx[(psi*phi(x))], Qx[rho(x)]), and
+      (v) use a tautological implication on the equivalences from (iii) and (iv) to
+          deduce equivalence_of((psi*Qx[phi(x)]), Qx[rho(x)]), as desired.
+    """
     Q = formula.second.root
     star = formula.root
     phi = formula.second.statement
@@ -844,6 +848,106 @@ def _pull_out_quantifications_across_binary_operator(
     assert has_uniquely_named_variables(formula)
     assert is_binary(formula.root)
     # Task 11.8
+    assumptions = set(Prover.AXIOMS).union(set(ADDITIONAL_QUANTIFICATION_AXIOMS))
+    proof = Prover(assumptions)
+    if is_quantifier_free(formula):
+        proof.add_tautology(equivalence_of(formula, formula))
+        return (formula, proof.qed())
+    """
+    We start with a formula of the form
+    (Q1x1[Q2x2[...Qnxn[phi]...]]*P1y1[P2y2[...Pmym[psi]...]]), where Qi and Pi are
+    quantifiers, xi and yi are variable names, * is a binary operator, and phi and psi
+    are formulas. As the book suggests, we build four equivalences:
+    (i) pull out quantifications from the left to get the first equivalence,
+      equivalence_of(formula, 
+                     Q1'x1[Q2'x2[...Qn'xn[(phi*P1y1[P2y2[...Pmym[psi]...]])]]]),
+    (ii) pull out quantifications from the right to get the second equivalence,
+      equivalence_of((phi*P1y1[P2y2[...Pmym[psi]...]]), 
+                      P1'y1[P2'y2[...Pm'ym[(phi*psi)]...]]),
+    (iii) repeatedly use axiom 15 or 16 on the second equivalence---quantifying over 
+      Q1'x1, Q2'x2,..., and Qn'xn---to get the third equivalence,
+      equivalence_of(Q1'x1[Q2'x2[...Qn'xn[(phi*P1y1[P2y2[...Pmym[psi]...]])]]],
+                     Q1'x1[Q2'x2[...Qn'xn[P1'y1[P2'y2[...Pm'ym[(phi*psi)]...]]]]]), and
+    (iv) then use a tautological implication from (i) and (iii) to deduce the last one,
+      equivalence_of(formula, 
+                     Q1'x1[Q2'x2[...Qn'xn[P1'y1[P2'y2[...Pm'ym[(phi*psi)]...]]]]]).
+    """
+    
+    # (i) The first equivalence
+    first_equivalent, first_equivalence_proof = (
+        _pull_out_quantifications_from_left_across_binary_operator(formula)
+    )
+    first_equivalence = equivalence_of(formula, first_equivalent)
+    first_equivalence_line_number = proof.add_proof(
+        first_equivalence_proof.conclusion, first_equivalence_proof
+    )
+
+    # (ii) The second equivalence
+    def unpack_quantified_statement(
+        formula: Formula,
+    ) -> Tuple[Formula, List[Tuple[str, str]]]:
+        """Takes a formula of the form Q1x1[Q2x2[...Qnxn[xi]...]], where n>=0, each Qi is
+        a quantifier, each xi is a variable, and xi is a formula. The function returns a
+        pair. The first element of the pair is the formula xi, and the second element of
+        the pair is a list of the quantifier-variable pairs, ordered from inside to out,
+        [(Qn, xn),..., (Q2, x2), (Q1, x1)].
+        """
+        if not is_quantifier(formula.root):
+            return (formula, [])
+        inside, quantifiers_and_variables = unpack_quantified_statement(formula.statement)
+        quantifiers_and_variables.append((formula.root, formula.variable))
+        return (inside, quantifiers_and_variables)
+
+    # Using the above helper function, we can unpack the formula achieved in the first
+    # equivalence. I call the statement of Qn'xn, (phi*P1y1[P2y2[...Pmym[psi]...]]),
+    # "inside."
+    inside, Qi_primes_and_xis = unpack_quantified_statement(first_equivalent)
+    second_equivalent, second_equivalence_proof = (
+        _pull_out_quantifications_from_right_across_binary_operator(inside)
+    )
+    second_equivalence = equivalence_of(inside, second_equivalent)
+    second_equivalence_line_number = proof.add_proof(
+        second_equivalence_proof.conclusion, second_equivalence_proof
+    )
+
+    # (iii) The third equivalence
+    previous_equivalence = second_equivalence
+    previous_equivalence_line_number = second_equivalence_line_number
+    for Qi_prime, xi in Qi_primes_and_xis:
+        if Qi_prime == "A":
+            axiom_15_or_16 = ADDITIONAL_QUANTIFICATION_AXIOMS[14]
+        else:
+            axiom_15_or_16 = ADDITIONAL_QUANTIFICATION_AXIOMS[15]
+        # previous_equivalence is ((R(xi)->Q(xi))&(Q(xi)->R(xi))). To instantiate axiom
+        # 15 or 16, we need to get parametrized versions of R and Q.
+        parametrized_R = previous_equivalence.first.first.substitute({xi: Term("_")})
+        parametrized_Q = previous_equivalence.second.first.substitute({xi: Term("_")})
+        axiom_15_or_16_instantiation_map = {
+            "x": xi,
+            "y": xi,
+            "R": parametrized_R,
+            "Q": parametrized_Q,
+        }
+        axiom_15_or_16_line_number = proof.add_instantiated_assumption(
+            axiom_15_or_16.instantiate(axiom_15_or_16_instantiation_map),
+            axiom_15_or_16,
+            axiom_15_or_16_instantiation_map,
+        )
+        previous_equivalence = axiom_15_or_16.instantiate(
+            axiom_15_or_16_instantiation_map
+        ).second
+        previous_equivalence_line_number = proof.add_tautological_implication(
+            previous_equivalence,
+            {previous_equivalence_line_number, axiom_15_or_16_line_number},
+        )
+
+    # (iv) The final equivalence
+    new_formula = previous_equivalence.second.first
+    proof.add_tautological_implication(
+        equivalence_of(formula, new_formula),
+        {first_equivalence_line_number, previous_equivalence_line_number},
+    )
+    return (new_formula, proof.qed())
 
 
 def _to_prenex_normal_form_from_uniquely_named_variables(
