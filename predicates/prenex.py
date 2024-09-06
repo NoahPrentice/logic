@@ -872,7 +872,7 @@ def _pull_out_quantifications_across_binary_operator(
       equivalence_of(formula, 
                      Q1'x1[Q2'x2[...Qn'xn[P1'y1[P2'y2[...Pm'ym[(phi*psi)]...]]]]]).
     """
-    
+
     # (i) The first equivalence
     first_equivalent, first_equivalence_proof = (
         _pull_out_quantifications_from_left_across_binary_operator(formula)
@@ -894,7 +894,9 @@ def _pull_out_quantifications_across_binary_operator(
         """
         if not is_quantifier(formula.root):
             return (formula, [])
-        inside, quantifiers_and_variables = unpack_quantified_statement(formula.statement)
+        inside, quantifiers_and_variables = unpack_quantified_statement(
+            formula.statement
+        )
         quantifiers_and_variables.append((formula.root, formula.variable))
         return (inside, quantifiers_and_variables)
 
@@ -985,6 +987,117 @@ def _to_prenex_normal_form_from_uniquely_named_variables(
     """
     assert has_uniquely_named_variables(formula)
     # Task 11.9
+    assumptions = set(Prover.AXIOMS).union(set(ADDITIONAL_QUANTIFICATION_AXIOMS))
+    proof = Prover(assumptions)
+    if is_unary(formula.root):
+        # Then formula has form ~phi. We use recursion to get a prenex normal form
+        # equivalent, rho, of phi.
+        phi = formula.first
+        rho, phi_equivalent_to_rho_proof = (
+            _to_prenex_normal_form_from_uniquely_named_variables(phi)
+        )
+        phi_equivalent_to_rho_line_number = proof.add_proof(
+            phi_equivalent_to_rho_proof.conclusion, phi_equivalent_to_rho_proof
+        )
+
+        # Then pull the quantifications out from the negation.
+        not_rho = Formula("~", rho)
+        new_formula, not_rho_equivalent_to_new_formula_proof = (
+            _pull_out_quantifications_across_negation(not_rho)
+        )
+        not_rho_equivalent_to_new_formula_line_number = proof.add_proof(
+            not_rho_equivalent_to_new_formula_proof.conclusion,
+            not_rho_equivalent_to_new_formula_proof,
+        )
+
+        # Use these two equivalences to deduce the final one.
+        proof.add_tautological_implication(
+            equivalence_of(formula, new_formula),
+            {
+                phi_equivalent_to_rho_line_number,
+                not_rho_equivalent_to_new_formula_line_number,
+            },
+        )
+        return (new_formula, proof.qed())
+    elif is_binary(formula.root):
+        # Then formula has form (phi1*phi2). We use recursion to get prenex normal form
+        # equivalents, rho1 and rho2, for phi1 and phi2 respectively.
+        phi1 = formula.first
+        phi2 = formula.second
+        star = formula.root
+        rho1, phi1_equivalent_to_rho1_proof = (
+            _to_prenex_normal_form_from_uniquely_named_variables(phi1)
+        )
+        phi1_equivalent_to_rho1_line_number = proof.add_proof(
+            phi1_equivalent_to_rho1_proof.conclusion, phi1_equivalent_to_rho1_proof
+        )
+        rho2, phi2_equivalent_to_rho2_proof = (
+            _to_prenex_normal_form_from_uniquely_named_variables(phi2)
+        )
+        phi2_equivalent_to_rho2_line_number = proof.add_proof(
+            phi2_equivalent_to_rho2_proof.conclusion, phi2_equivalent_to_rho2_proof
+        )
+        rho1_star_rho2 = Formula(star, rho1, rho2)
+
+        # Pull quantifications out from *
+        new_formula, new_formula_equivalent_to_rho1_star_rho2_proof = (
+            _pull_out_quantifications_across_binary_operator(rho1_star_rho2)
+        )
+        new_formula_equivalent_to_rho1_star_rho2_line_number = proof.add_proof(
+            new_formula_equivalent_to_rho1_star_rho2_proof.conclusion,
+            new_formula_equivalent_to_rho1_star_rho2_proof,
+        )
+
+        # Use these equivalences to deduce the final one.
+        proof.add_tautological_implication(
+            equivalence_of(formula, new_formula),
+            {
+                phi1_equivalent_to_rho1_line_number,
+                phi2_equivalent_to_rho2_line_number,
+                new_formula_equivalent_to_rho1_star_rho2_line_number,
+            },
+        )
+        return (new_formula, proof.qed())
+    elif is_quantifier(formula.root):
+        # Then formula has the form Qx[phi(x)]. We use recursion to find a prenex normal
+        # form equivalent, rho(x), for phi(x).
+        Q = formula.root
+        x = formula.variable
+        phi = formula.statement
+        rho, phi_equivalent_to_rho_proof = (
+            _to_prenex_normal_form_from_uniquely_named_variables(phi)
+        )
+        phi_equivalent_to_rho_line_number = proof.add_proof(
+            phi_equivalent_to_rho_proof.conclusion, phi_equivalent_to_rho_proof
+        )
+        new_formula = Formula(Q, x, rho)
+
+        # Then we justify adding the quantifier using axiom 15 or 16.
+        if Q == "A":
+            axiom_15_or_16 = ADDITIONAL_QUANTIFICATION_AXIOMS[14]
+        else:
+            axiom_15_or_16 = ADDITIONAL_QUANTIFICATION_AXIOMS[15]
+        parametrized_phi = phi.substitute({x: Term("_")})
+        parametrized_rho = rho.substitute({x: Term("_")})
+        axiom_15_or_16_instantiation_map = {
+            "x": x,
+            "y": x,
+            "R": parametrized_phi,
+            "Q": parametrized_rho,
+        }
+        axiom_15_or_16_line_number = proof.add_instantiated_assumption(
+            axiom_15_or_16.instantiate(axiom_15_or_16_instantiation_map),
+            axiom_15_or_16,
+            axiom_15_or_16_instantiation_map,
+        )
+        proof.add_tautological_implication(
+            equivalence_of(formula, new_formula),
+            {phi_equivalent_to_rho_line_number, axiom_15_or_16_line_number},
+        )
+        return (new_formula, proof.qed())
+    else:
+        proof.add_tautology(equivalence_of(formula, formula))
+        return (formula, proof.qed())
 
 
 def to_prenex_normal_form(formula: Formula) -> Tuple[Formula, Proof]:
@@ -1020,3 +1133,32 @@ def to_prenex_normal_form(formula: Formula) -> Tuple[Formula, Proof]:
     for variable in formula.variables():
         assert not is_z_and_number(variable)
     # Task 11.10
+    assumptions = set(Prover.AXIOMS).union(set(ADDITIONAL_QUANTIFICATION_AXIOMS))
+    proof = Prover(assumptions)
+
+    # Get an equivalent to formula with unique variable names and prove the equivalence
+    unique_variable_equivalent, unique_variable_equivalence_proof = (
+        _uniquely_rename_quantified_variables(formula)
+    )
+    unique_variable_equivalence_line_number = proof.add_proof(
+        unique_variable_equivalence_proof.conclusion, unique_variable_equivalence_proof
+    )
+
+    # Get an equivalent to the above in prenex normal form and prove the equivalence
+    prenex_normal_form, prenex_normal_form_equivalence_proof = (
+        _to_prenex_normal_form_from_uniquely_named_variables(unique_variable_equivalent)
+    )
+    prenex_normal_form_equivalence_line_number = proof.add_proof(
+        prenex_normal_form_equivalence_proof.conclusion,
+        prenex_normal_form_equivalence_proof,
+    )
+
+    # Chain the two equivalences together.
+    proof.add_tautological_implication(
+        equivalence_of(formula, prenex_normal_form),
+        {
+            unique_variable_equivalence_line_number,
+            prenex_normal_form_equivalence_line_number,
+        },
+    )
+    return (prenex_normal_form, proof.qed())
