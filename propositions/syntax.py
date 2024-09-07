@@ -12,7 +12,8 @@ from typing import Mapping, Optional, Set, Tuple, Union
 
 from logic_utils import frozen, memoized_parameterless_method
 
-@lru_cache(maxsize=100) # Cache the return value of is_variable
+
+@lru_cache(maxsize=100)  # Cache the return value of is_variable
 def is_variable(string: str) -> bool:
     """Checks if the given string is a variable name.
 
@@ -22,10 +23,14 @@ def is_variable(string: str) -> bool:
     Returns:
         ``True`` if the given string is a variable name, ``False`` otherwise.
     """
-    return string[0] >= 'p' and string[0] <= 'z' and \
-           (len(string) == 1 or string[1:].isdecimal())
+    return (
+        string[0] >= "p"
+        and string[0] <= "z"
+        and (len(string) == 1 or string[1:].isdecimal())
+    )
 
-@lru_cache(maxsize=100) # Cache the return value of is_constant
+
+@lru_cache(maxsize=100)  # Cache the return value of is_constant
 def is_constant(string: str) -> bool:
     """Checks if the given string is a constant.
 
@@ -35,9 +40,10 @@ def is_constant(string: str) -> bool:
     Returns:
         ``True`` if the given string is a constant, ``False`` otherwise.
     """
-    return string == 'T' or string == 'F'
+    return string == "T" or string == "F"
 
-@lru_cache(maxsize=100) # Cache the return value of is_unary
+
+@lru_cache(maxsize=100)  # Cache the return value of is_unary
 def is_unary(string: str) -> bool:
     """Checks if the given string is a unary operator.
 
@@ -47,9 +53,10 @@ def is_unary(string: str) -> bool:
     Returns:
         ``True`` if the given string is a unary operator, ``False`` otherwise.
     """
-    return string == '~'
+    return string == "~"
 
-@lru_cache(maxsize=100) # Cache the return value of is_binary
+
+@lru_cache(maxsize=100)  # Cache the return value of is_binary
 def is_binary(string: str) -> bool:
     """Checks if the given string is a binary operator.
 
@@ -60,7 +67,8 @@ def is_binary(string: str) -> bool:
         ``True`` if the given string is a binary operator, ``False`` otherwise.
     """
     # Edited for task 3.1
-    return string in {'&', '|',  '->', '+', '<->', '-&', '-|'}
+    return string in {"&", "|", "->", "+", "<->", "-&", "-|"}
+
 
 @frozen
 class Formula:
@@ -75,12 +83,17 @@ class Formula:
         second (`~typing.Optional`\\[`Formula`]): the second operand of the
             root, if the root is a binary operator.
     """
+
     root: str
     first: Optional[Formula]
     second: Optional[Formula]
 
-    def __init__(self, root: str, first: Optional[Formula] = None,
-                 second: Optional[Formula] = None):
+    def __init__(
+        self,
+        root: str,
+        first: Optional[Formula] = None,
+        second: Optional[Formula] = None,
+    ):
         """Initializes a `Formula` from its root and root operands.
 
         Parameters:
@@ -109,12 +122,16 @@ class Formula:
             The standard string representation of the current formula.
         """
         # Task 1.1
-        if is_unary(self.root):
-            return self.root + self.first.__repr__()
-        elif is_binary(self.root):
-            return '(' + self.first.__repr__() + self.root + self.second.__repr__() + ')'
-        else:
+
+        # Base case
+        if is_variable(self.root) or is_constant(self.root):
             return self.root
+
+        # Recursive case: self is an operator.
+        if is_unary(self.root):
+            return self.root + str(self.first)
+        else:  # Binary operator
+            return "(" + str(self.first) + self.root + str(self.second) + ")"
 
     def __eq__(self, other: object) -> bool:
         """Compares the current formula with the given one.
@@ -151,15 +168,20 @@ class Formula:
             A set of all variable names used in the current formula.
         """
         # Task 1.2
-        x: Set[str] = set()
-        if is_unary(self.root):
-            x.update(self.first.variables())
+
+        variables = set()
+
+        # Base case
+        if is_variable(self.root):
+            variables.add(self.root)
+
+        # Recursive case
+        elif is_unary(self.root):
+            variables.update(self.first.variables())
         elif is_binary(self.root):
-            x.update(self.first.variables())
-            x.update(self.second.variables())
-        elif self.root != 'T' and self.root != 'F':
-            x.add(self.root)
-        return x
+            variables.update(self.first.variables())
+            variables.update(self.second.variables())
+        return variables
 
     @memoized_parameterless_method
     def operators(self) -> Set[str]:
@@ -170,17 +192,88 @@ class Formula:
             current formula.
         """
         # Task 1.3
-        x: Set[str] = set()
-        if is_unary(self.root):
-            x.add('~')
-            x.update(self.first.operators())
+
+        operators = set()
+
+        # Base case
+        if is_constant(self.root):
+            operators.add(self.root)
+
+        # Recursive case
+        elif is_unary(self.root):
+            operators.add("~")
+            operators.update(self.first.operators())
         elif is_binary(self.root):
-            x.add(self.root)
-            x.update(self.first.operators())
-            x.update(self.second.operators())
-        elif self.root == 'T' or self.root == 'F':
-            x.add(self.root)
-        return x
+            operators.add(self.root)
+            operators.update(self.first.operators())
+            operators.update(self.second.operators())
+        return operators
+
+    def NEW_parse_constant_or_variable(string: str) -> Tuple[Union[str, None], str]:
+        """Parses a constant or variable at the beginning of a string. For example,
+        parse_constant_or_variable("x19&F") returns ("x19", "&F), while
+        parse_constant_or_variable("(x19&F)) returns (None, "x19&f").
+
+        Parameters:
+            string: string to parse
+
+        Returns:
+            A pair. The first element of the pair is a string containing the constant or
+            variable at the beginning of the given string, and the second element is the
+            rest. If no prefix of the given string is a constant or variable, returns
+            (None, string).
+        """
+        if not (is_variable(string[0]) or is_constant(string[0])):
+            return (None, string)
+        if len(string) == 1:
+            return (string, "")
+        # If the string is longer than 1 character, we need to make sure we
+        # return the entire variable name instead of just the beginning. So we
+        # make our string longer and longer until we no longer have a variable.
+        variable = string[0]
+        rest = string[1:]
+        for i in range(1, len(string)):
+            if is_variable(string[: i + 1]) or is_constant(string[: i + 1]):
+                variable = string[: i + 1]
+                rest = string[i + 1 :]
+        return (variable, rest)
+
+    def NEW_parse_binary_operator(string: str) -> Tuple[Union[str, None], str]:
+        """Parses a binary operator at the beginning of a string. For example,
+        parse_operator("<->&abc") returns ("<->", "&abc"), while
+        parse_operator("--x") returns error = (None, "Unexpected symbol).
+
+        Parameters:
+            string: string to parse
+
+        Returns:
+            A pair of the operator at the beginning of the string and the rest.
+            If no prefix of the given string is an operator, returns an error.
+        """
+        error = (None, "Unexpected symbol")
+
+        if len(string) == 0:
+            return error
+
+        # 1-character operators
+        if string[0] == "&" or string[0] == "|" or string[0] == "+":
+            return (string[0], string[1:])
+
+        # 2-character operators
+        if len(string) == 1:
+            return error
+        if string[0] == "-" and (
+            string[1] == ">" or string[1] == "&" or string[1] == "|"
+        ):
+            return (string[0:2], string[2:])
+
+        # 3-character operator
+        if len(string) == 2:
+            return error
+        if string[0:3] == "<->":
+            return (string[0:3], string[3:])
+        return error
+
     @staticmethod
     def _parse_prefix(string: str) -> Tuple[Union[Formula, None], str]:
         """Parses a prefix of the given string into a formula.
@@ -199,65 +292,58 @@ class Formula:
             is a string with some human-readable content.
         """
         # Task 1.4, edited for task 3.1
-        error: Tuple[Union[Formula, None], str] = [None, 'Unexpected symbol']
-        if string == '': # To avoid index errors (looking for a first character when there is none), we have to
-                         # treat the case where the string is empty seperately.
-            return error
-        
-        elif string[0] == 'T' or string[0] == 'F': # Otherwise, we check if the prefix is a constant, in which case we're done.
-            if len(string) > 1:
-                return [Formula(string[0]), string[1:]]
-            else:
-                return [Formula(string[0]), '']
-            
-        elif is_variable(string[0]): # If our first character is a variable, we need to find the whole variable.
-            if len(string) == 1: # If the whole string is a single-letter variable, we're done.
-                return [Formula(string[0]), '']
-            else:
-                variable = Formula(string[0]) # Otherwise, we initialize our variable to the first character,
-                rest = string[1:]             # and say the rest is everything else.
-                for i in range(1, len(string)):     # Then we look to see if the first letter is the prefix of another variable.
-                    if is_variable(string[:i + 1]):         # If it really is the prefix of another variable,
-                        variable = Formula(string[:i + 1])  # we change our formula to reflect that,
-                        rest = string[i + 1:]               # and we say the rest is everything past it.
-                    else:                                   
-                        return [variable, rest]             # Otherwise, we know only the first character is a variable.
-                return [variable, rest]
 
-        elif string[0] == '~' and len(string) > 1: # If the prefix is a ~, then we know we just parse everything to the right.
-            firstPrefix, rest = Formula._parse_prefix(string[1:])
-            return [Formula('~', firstPrefix), rest]
-        
-        elif string[0] == '(' and len(string) > 1: # I've changed this to recursion for Ch. 3 because fixing my old thing would be just as hard.
-            firstPrefix, rest = Formula._parse_prefix(string[1:]) # Recursively find the first prefix (left-hand conjunct, disjunct, etc.)
-            secondPrefix = None # I need to initialize a future variable to "None" to avoid reference-before-assignment errors.
-            # Once I've found the first prefix, I want to figure out what the operator is that comes after it.
-            # My biggest fear is an "index out of bound" error: if I look for an operator in an empty string, Python gets mad.
-            if firstPrefix is None or len(rest) == 0:
+        error = (None, "Unexpected symbol")
+
+        # Base case: string is empty, or starts with a constant or variable.
+        if string == "":
+            return error
+
+        elif is_constant(string[0]) or is_variable(string[0]):
+            # The logic of parsing constants and variables is outsourced to a new helper
+            # function I made. It is located above _parse_prefix.
+            variable, rest =  Formula.NEW_parse_constant_or_variable(string)
+            return (Formula(variable), rest)
+
+        # Recursive case: string starts with a ~ or (
+        elif string[0] == "~" and len(string) > 1:
+            # In this case, we recursively parse the operand (what comes after "~").
+            first_prefix, rest = Formula._parse_prefix(string[1:])
+            if first_prefix is None:
                 return error
-            # If I find a 1-character operator and try to parse the rest (when there is no rest), Python gets mad. Hence length must be > 1.
-            elif (rest[0] == '&' or rest[0] == '|' or rest[0] == '+') and len(rest) > 1: 
-                operator = rest[0]
-                secondPrefix, rest = Formula._parse_prefix(rest[1:])
-            # If I try to find a longer operator when the string isn't that long, Python gets mad. So first I have to check the length.
-            # If my length is at least 3, then I can have a longer operator and something after it (the right-hand conjunct, disjunct, etc.)
-            elif len(rest) >= 3:
-                if rest[0] == '-' and (rest[1] == '>' or rest[1] == '&' or rest[1] == '|'): # Checking for the two-character operators.
-                    operator = rest[0] + rest[1]
-                    secondPrefix, rest = Formula._parse_prefix(rest[2:])
-                # If my operator isn't a 2-character one, I need to check for the final, 3-character one, '<->'.
-                # Again I need to check the length of the string here.
-                if (rest[0] == '<' and rest[1] == '-' and rest[2] == '>') and len(rest) >= 4:
-                    operator = '<->'
-                    secondPrefix, rest = Formula._parse_prefix(rest[3:])
-            else: # If there's no operator to go with the parenthesis, we return an error.
+            return (Formula("~", first_prefix), rest)
+
+        elif string[0] == "(" and len(string) > 1:
+            # In this case, we expect a binary operator. So we
+            #   (i) recursively parse the first operand (left conjunct, disjunct, etc.),
+            #   (ii) find the operator used, and
+            #   (iii) recursively parse the second operand (right conjunct, etc.).
+            # All this time, we have to be very careful with how long the string is, so
+            # that we don't incur index-out-of-bound errors. This explains the frequent
+            # checks on len(rest). Additionally, if any of our recursive calls yield
+            # errors, we need to pass that along by returning "error".
+
+            # (i) Recursively parse the first operand
+            first_prefix, rest = Formula._parse_prefix(string[1:])
+            if first_prefix is None or len(rest) == 0:
                 return error
-            if secondPrefix is None or len(rest) == 0: # If we ran into an error finding the second prefix, we need to pass it along.
+
+            # (ii) Find the operator
+            # The logic of parsing binary operators is outsourced to a new helper
+            # function I made. It is located above _parse_prefix.
+            operator, rest = Formula.NEW_parse_binary_operator(rest)
+            if operator is None:
                 return error
-            elif rest[0] == ')': # Otherwise, we have a well-formed formula as a prefix, so long as it ends with a closing parenthesis.
-                return [Formula(operator, firstPrefix, secondPrefix), rest[1:]]
+
+            # (iii) recursively parse the second operand
+            second_prefix = None
+            second_prefix, rest = Formula._parse_prefix(rest)
+            if second_prefix is None or len(rest) == 0:
+                return error
+            elif rest[0] == ")":
+                return (Formula(operator, first_prefix, second_prefix), rest[1:])
         return error
-                
+
     @staticmethod
     def is_formula(string: str) -> bool:
         """Checks if the given string is a valid representation of a formula.
@@ -270,9 +356,10 @@ class Formula:
             representation of a formula, ``False`` otherwise.
         """
         # Task 1.5
+
         prefix = Formula._parse_prefix(string)
-        return (prefix[0] is not None and prefix[1] == '')
-        
+        return prefix[0] is not None and prefix[1] == ""
+
     @staticmethod
     def parse(string: str) -> Formula:
         """Parses the given valid string representation into a formula.
@@ -285,6 +372,7 @@ class Formula:
         """
         assert Formula.is_formula(string)
         # Task 1.6
+
         return Formula._parse_prefix(string)[0]
 
     def polish(self) -> str:
@@ -294,6 +382,7 @@ class Formula:
             The polish notation representation of the current formula.
         """
         # Optional Task 1.7
+
         if is_unary(self.root):
             return self.root + self.first.polish()
         elif is_binary(self.root):
@@ -312,50 +401,56 @@ class Formula:
             A formula whose polish notation representation is the given string.
         """
         # Optional Task 1.8
-        assert len(string) > 0
-        def const_variable_parse(string: str) -> Tuple[Union[str, None], str]: # This function tests if our string starts with a variable or constant.
-            if is_variable(string[0]) or is_constant(string[0]):               # If our first character is a variable, we need to find the whole variable.
-                if len(string) == 1:                                           # If the whole string is a single-letter variable, we're done.
-                    return [string, '']
-                else:
-                    variable = string[0]
-                    rest = string[1:]                                                   # and say the rest is everything else.
-                    for i in range(1, len(string)):                                     # Then we look to see if the first letter is the prefix of another variable.
-                        if is_variable(string[:i + 1]) or is_constant(string[:i + 1]):  # If it really is the prefix of another variable,
-                            variable = string[:i + 1]                                   # we change our formula to reflect that,
-                            rest = string[i + 1:]                                       # and we say the rest is everything past it.
-                    return [variable, rest]
-            else:
-                return [None, string]
-            
-        def polish_prefix(string: str) -> Tuple[Union[Formula, None], str]:
-            variable, rest = const_variable_parse(string)
-            if variable is not None:
-                return [Formula(variable), rest]
-            elif is_unary(string[0]):
-                object, rest = polish_prefix(string[1:])
-                return [Formula(string[0], object), rest]
-            elif is_binary(string[0]):
-                left, rest = polish_prefix(string[1:])
-                right, rest = polish_prefix(rest)
-                return [Formula(string[0], left, right), rest]
-            elif is_binary(string[:2]):
-                left, rest = polish_prefix(string[1:])
-                right, rest = polish_prefix(rest)
-                return [Formula(string[:2], left, right), rest]
-            elif is_binary(string[:3]):
-                left, rest = polish_prefix(string[1:])
-                right, rest = polish_prefix(rest)
-                return [Formula(string[:3], left, right), rest]
-            else:
-                return [None, 'Error.']
-        
-        formula, suffix = polish_prefix(string)
-        if suffix == '':
-            return formula
 
-    def substitute_variables(self, substitution_map: Mapping[str, Formula]) -> \
-            Formula:
+        assert len(string) > 0
+
+        # We start by building a _parse_prefix equivalent for polish notation.
+        def polish_prefix(string: str) -> Tuple[Union[Formula, None], str]:
+            """Parses a prefix of the given string into a formula. Assumes the string is
+            given in polish notation.
+
+            Parameters:
+                string: string to parse.
+
+            Returns: A pair of the prefix of the formula and the rest.
+            """
+
+            # Note that, as in _parse_prefix above, I outsource parsing constants,
+            # variables, and binary operators to new helper functions I made. These are
+            # located above _parse_prefix.
+
+            # Base case: string starts with a constant or variable
+            variable, rest = Formula.NEW_parse_constant_or_variable(string)
+            if variable is not None:
+                return (Formula(variable), rest)
+
+            # Recursive case: string starts with an operator
+            elif is_unary(string[0]):
+                operand, rest = polish_prefix(string[1:])
+                return (Formula(string[0], operand), rest)
+            
+            # For binary operators, we try to parse the operator and then recurse to find
+            # the operands. We check for errors at every step, just to be safe :-)
+            operator, rest = Formula.NEW_parse_binary_operator(string)
+            if operator is None:
+                return (operator, rest)
+
+            left, rest = polish_prefix(rest)
+            if left is None:
+                return (left, rest)
+            
+            right, rest = polish_prefix(rest)
+            if right is None:
+                return (right, rest)
+            return (Formula(operator, left, right), rest)
+
+        # Then parsing is as simple as calling this function.
+        formula, suffix = polish_prefix(string)
+        if suffix == "":
+            return formula
+        return (None, "Unexpected symbol.")
+
+    def substitute_variables(self, substitution_map: Mapping[str, Formula]) -> Formula:
         """Substitutes in the current formula, each variable name `v` that is a
         key in `substitution_map` with the formula `substitution_map[v]`.
 
@@ -384,11 +479,14 @@ class Formula:
         elif is_unary(self.root):
             return Formula(self.root, self.first.substitute_variables(substitution_map))
         elif is_binary(self.root):
-            return Formula(self.root, self.first.substitute_variables(substitution_map), self.second.substitute_variables(substitution_map))
+            return Formula(
+                self.root,
+                self.first.substitute_variables(substitution_map),
+                self.second.substitute_variables(substitution_map),
+            )
         return self
 
-    def substitute_operators(self, substitution_map: Mapping[str, Formula]) -> \
-            Formula:
+    def substitute_operators(self, substitution_map: Mapping[str, Formula]) -> Formula:
         """Substitutes in the current formula, each constant or operator `op`
         that is a key in `substitution_map` with the formula
         `substitution_map[op]` applied to its (zero or one or two) operands,
@@ -412,30 +510,42 @@ class Formula:
             ~(~~(~x|~y)|~~z)
         """
         for operator in substitution_map:
-            assert is_constant(operator) or is_unary(operator) or \
-                   is_binary(operator)
-            assert substitution_map[operator].variables().issubset({'p', 'q'})
+            assert is_constant(operator) or is_unary(operator) or is_binary(operator)
+            assert substitution_map[operator].variables().issubset({"p", "q"})
         # Task 3.4
-        if is_constant(self.root): 
-        # If our root is a constant, check if it is mapped to something.
-            if self.root in substitution_map: # If it is, replace it.
-                return substitution_map[self.root] 
-        elif is_unary(self.root): 
-        # If our root is unary, we check if it is mapped to something.
-            if self.root in substitution_map: 
-            # If it is, we need to replace both the root and the object that the root is operating on.
-                return substitution_map[self.root].substitute_variables({'p': self.first.substitute_operators(substitution_map)}) 
+        if is_constant(self.root):
+            # If our root is a constant, check if it is mapped to something.
+            if self.root in substitution_map:  # If it is, replace it.
+                return substitution_map[self.root]
+        elif is_unary(self.root):
+            # If our root is unary, we check if it is mapped to something.
+            if self.root in substitution_map:
+                # If it is, we need to replace both the root and the object that the root is operating on.
+                return substitution_map[self.root].substitute_variables(
+                    {"p": self.first.substitute_operators(substitution_map)}
+                )
                 # Of course, if the root appears in the mapping, it is mapped to a formula in terms of 'p', so we need to replace 'p' with the object.
             else:
-            # Otherwise, we just need to replace the object.
-                return Formula(self.root, self.first.substitute_operators(substitution_map)) # 
+                # Otherwise, we just need to replace the object.
+                return Formula(
+                    self.root, self.first.substitute_operators(substitution_map)
+                )  #
         elif is_binary(self.root):
-        # Similarly, for binary operators, we need to replace both objects (both conjuncts/disjuncts, etc.) and, possibly, the operator itself.
+            # Similarly, for binary operators, we need to replace both objects (both conjuncts/disjuncts, etc.) and, possibly, the operator itself.
             if self.root in substitution_map:
-            # If we need to replace the operator itself, we (1) replace the first and second objects, and then (2) replace the operator.
-            # Again, we have to be careful because the mapping uses 'p' and 'q', so we need to replace those.
-                return substitution_map[self.root].substitute_variables({'p': self.first.substitute_operators(substitution_map), 'q': self.second.substitute_operators(substitution_map)})
+                # If we need to replace the operator itself, we (1) replace the first and second objects, and then (2) replace the operator.
+                # Again, we have to be careful because the mapping uses 'p' and 'q', so we need to replace those.
+                return substitution_map[self.root].substitute_variables(
+                    {
+                        "p": self.first.substitute_operators(substitution_map),
+                        "q": self.second.substitute_operators(substitution_map),
+                    }
+                )
             else:
-            # If we don't, we can just replace the two objects.
-                return Formula(self.root, self.first.substitute_operators(substitution_map), self.second.substitute_operators(substitution_map))
+                # If we don't, we can just replace the two objects.
+                return Formula(
+                    self.root,
+                    self.first.substitute_operators(substitution_map),
+                    self.second.substitute_operators(substitution_map),
+                )
         return self
