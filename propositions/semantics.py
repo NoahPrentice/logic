@@ -15,6 +15,7 @@ from propositions.proofs import *
 #: truth values.
 Model = Mapping[str, bool]
 
+
 def is_model(model: Model) -> bool:
     """Checks if the given dictionary is a model over some set of variable
     names.
@@ -31,6 +32,7 @@ def is_model(model: Model) -> bool:
             return False
     return True
 
+
 def variables(model: Model) -> AbstractSet[str]:
     """Finds all variable names over which the given model is defined.
 
@@ -42,6 +44,7 @@ def variables(model: Model) -> AbstractSet[str]:
     """
     assert is_model(model)
     return model.keys()
+
 
 def evaluate(formula: Formula, model: Model) -> bool:
     """Calculates the truth value of the given formula in the given model.
@@ -64,28 +67,29 @@ def evaluate(formula: Formula, model: Model) -> bool:
     assert is_model(model)
     assert formula.variables().issubset(variables(model))
     # Task 2.1, edited for Task 3.2
-    if formula.root == 'T':
+    if formula.root == "T":
         return True
-    elif formula.root == 'F':
+    elif formula.root == "F":
         return False
     elif is_variable(formula.root):
         return model[formula.root]
-    elif formula.root == '~':
-        return (not evaluate(formula.first, model))
-    elif formula.root == '&':
-        return (evaluate(formula.first, model) and evaluate(formula.second, model))
-    elif formula.root == '|':
-        return (evaluate(formula.first, model) or evaluate(formula.second, model))
-    elif formula.root == '->':
-        return (not evaluate(formula.first, model) or evaluate(formula.second, model))
-    elif formula.root == '+':
-        return (evaluate(formula.first, model) != evaluate(formula.second, model))
-    elif formula.root == '<->':
-        return (evaluate(formula.first, model) == evaluate(formula.second, model))
-    elif formula.root == '-&':
+    elif formula.root == "~":
+        return not evaluate(formula.first, model)
+    elif formula.root == "&":
+        return evaluate(formula.first, model) and evaluate(formula.second, model)
+    elif formula.root == "|":
+        return evaluate(formula.first, model) or evaluate(formula.second, model)
+    elif formula.root == "->":
+        return not evaluate(formula.first, model) or evaluate(formula.second, model)
+    elif formula.root == "+":
+        return evaluate(formula.first, model) != evaluate(formula.second, model)
+    elif formula.root == "<->":
+        return evaluate(formula.first, model) == evaluate(formula.second, model)
+    elif formula.root == "-&":
         return not (evaluate(formula.first, model) and evaluate(formula.second, model))
-    elif formula.root == '-|':
+    elif formula.root == "-|":
         return not (evaluate(formula.first, model) or evaluate(formula.second, model))
+
 
 def all_models(variables: Sequence[str]) -> Iterable[Model]:
     """Calculates all possible models over the given variable names.
@@ -108,26 +112,47 @@ def all_models(variables: Sequence[str]) -> Iterable[Model]:
     for v in variables:
         assert is_variable(v)
     # Task 2.2
-    def combinations(n: int):
+
+    # The main work comes from finding all possible n-tuples (or lists of length n)
+    # containing only True and False. This is done with the following helper function.
+    def combinations(n: int) -> list:
+        """Creates a list of all n-tuples containing only True and False.
+
+        Parameters:
+            n: length of tuples to generate.
+
+        Returns:
+            A list of all n-tuples containing only True and False, in
+            lexicographic order, e.g., combinations(2) returns
+            [[False, False], [False, True], [True, False], [True, True]].
+        """
+        # Base case
         if n == 1:
             falseList = [False]
             trueList = [True]
             return [falseList, trueList]
         elif n < 1:
             return []
-        else:
-            previous1 = combinations(n-1)
-            previous2 = [False for i in range(2**(n-1))]
-            for i in range(len(previous1)):
-                previous2[i] = [True] + previous1[i]
-                previous1[i] = [False] + previous1[i]
-            return previous1 + previous2
-    combinationList = combinations(len(variables))
-    for combo in combinationList:
+
+        # Recursive case
+        # We recursively find all (n-1)-tuples, and then add False or True to the start
+        # of each tuple. Combining the results gives us what we wanted.
+        previous1 = combinations(n - 1)
+        previous2 = previous1.copy()
+        for i in range(len(previous1)):
+            previous1[i] = [False] + previous1[i]
+            previous2[i] = [True] + previous2[i]
+        return previous1 + previous2
+
+    # With this above helper function, building the model is as simple is turning each
+    # n-tuple it gave us into a dictionary.
+    combination_list = combinations(len(variables))
+    for combo in combination_list:
         model = dict()
         for index in range(len(combo)):
             model[variables[index]] = combo[index]
         yield model
+
 
 def truth_values(formula: Formula, models: Iterable[Model]) -> Iterable[bool]:
     """Calculates the truth value of the given formula in each of the given
@@ -149,6 +174,7 @@ def truth_values(formula: Formula, models: Iterable[Model]) -> Iterable[bool]:
     for model in models:
         yield evaluate(formula, model)
 
+
 def print_truth_table(formula: Formula) -> None:
     """Prints the truth table of the given formula, with variable-name columns
     sorted alphabetically.
@@ -166,31 +192,42 @@ def print_truth_table(formula: Formula) -> None:
         | T | T   | F        |
     """
     # Task 2.4
-    vars = sorted(list(formula.variables()))
-    formString = formula.__repr__()
+
+    # I build the truth table into a single string. We do this in two steps:
+    #   (i) create the header of the table by adding all of the variables and the
+    #       formula, separated by vertical bars, and then adding a horizontal line.
+    #   (ii) add a new line for each possible model over the variables, with the
+    #       truth values of the variables and formula underneath.
+
+    # (i) Create the header of the table
+    variables = sorted(list(formula.variables()))
+    formula_string = str(formula)
     table = "|"
-    for var in vars:
-        table += " " + var + " |"
-    table += " " + formString + " |\n|"
-    for var in vars:
-        table += '-'*(len(var) + 2) + '|'
-    table += '-'*(len(formString) + 2) + '|\n|'
-    models = all_models(vars)
-    count = 0
+    for variable in variables:
+        table += " " + variable + " |"
+    table += " " + formula_string + " |\n|"
+    for variable in variables:
+        table += "-" * (len(variable) + 2) + "|"
+    table += "-" * (len(formula_string) + 2) + "|\n|"
+
+    # (ii) add a new line for each possible model over the variables
+    models = all_models(variables)
+    is_first_line = True
     for model in models:
-        if count != 0:
+        if not is_first_line:
             table += "\n|"
-        for var in vars:
-            if evaluate(Formula.parse(var), model):
-                table += " T" + " "*len(var) + "|"
+        for variable in variables:
+            if evaluate(Formula.parse(variable), model):
+                table += " T" + " " * len(variable) + "|"
             else:
-                table += " F" + " "*len(var) + "|"
+                table += " F" + " " * len(variable) + "|"
         if evaluate(formula, model):
-            table += " T" + " "*len(formString) + "|"
+            table += " T" + " " * len(formula_string) + "|"
         else:
-            table += " F" + " "*len(formString) + "|"
-        count += 1
+            table += " F" + " " * len(formula_string) + "|"
+        is_first_line = False
     print(table)
+
 
 def is_tautology(formula: Formula) -> bool:
     """Checks if the given formula is a tautology.
@@ -202,19 +239,24 @@ def is_tautology(formula: Formula) -> bool:
         ``True`` if the given formula is a tautology, ``False`` otherwise.
     """
     # Task 2.5a
-    vars = list(formula.variables())
-    models = list(all_models(vars))
-    if len(models) == 0:
-        if evaluate(formula, {'z992928478': False}):
+
+    variables = list(formula.variables())
+    # If there are no variables, we just evaluate it with any model
+    if len(variables) == 0:
+        if evaluate(formula, {"x": False}):
             return True
         else:
             return False
+
+    # Otherwise, we check each model, stopping if we get False.
+    models = list(all_models(variables))
     value = True
     for model in models:
-        if evaluate(formula, model) == False:
+        if not evaluate(formula, model):
             value = False
             break
     return value
+
 
 def is_contradiction(formula: Formula) -> bool:
     """Checks if the given formula is a contradiction.
@@ -226,19 +268,10 @@ def is_contradiction(formula: Formula) -> bool:
         ``True`` if the given formula is a contradiction, ``False`` otherwise.
     """
     # Task 2.5b
-    vars = list(formula.variables())
-    models = list(all_models(vars))
-    if len(models) == 0:
-        if evaluate(formula, {'z992928478': False}):
-            return False
-        else:
-            return True
-    value = True
-    for model in models:
-        if evaluate(formula, model):
-            value = False
-            break
-    return value
+
+    # formula is a contradiction if and only if ~formula is a tautology.
+    return is_tautology(Formula("~", formula))
+
 
 def is_satisfiable(formula: Formula) -> bool:
     """Checks if the given formula is satisfiable.
@@ -250,19 +283,10 @@ def is_satisfiable(formula: Formula) -> bool:
         ``True`` if the given formula is satisfiable, ``False`` otherwise.
     """
     # Task 2.5c
-    vars = list(formula.variables())
-    models = list(all_models(vars))
-    if len(models) == 0:
-        if evaluate(formula, {'z992928478': False}):
-            return True
-        else:
-            return False
-    value = False
-    for model in models:
-        if evaluate(formula, model):
-            value = True
-            break
-    return value
+
+    # formula is satisfiable if and only if it is not a contradiction.
+    return not is_contradiction(formula)
+
 
 def _synthesize_for_model(model: Model) -> Formula:
     """Synthesizes a propositional formula in the form of a single conjunctive
@@ -279,23 +303,24 @@ def _synthesize_for_model(model: Model) -> Formula:
     assert is_model(model)
     assert len(model.keys()) > 0
     # Task 2.6
-    formulaList = []
-    for var in model:
-        if model[var]:
-            formulaList.append(Formula(var))
+
+    # For each variable in the model, we add it or its negation to a list of formulas.
+    formula_list = []
+    for variable in model:
+        if model[variable]:
+            formula_list.append(Formula(variable))
         else:
-            formulaList.append(Formula('~', Formula(var)))
-    if len(formulaList) == 1:
-        return formulaList[0]
-    else:
-        form = Formula('&', formulaList[0], formulaList[1])
-        formulaList.pop(0)
-        formulaList.pop(0)
-        while len(formulaList) > 0:
-            tempForm = form
-            form = Formula('&', tempForm, formulaList[0])
-            formulaList.pop()
-        return form
+            formula_list.append(Formula("~", Formula(variable)))
+
+    # Once we have done this, we just need to conjoin all of the formulas together.
+    if len(formula_list) == 1:
+        return formula_list[0]
+    formula = Formula("&", formula_list.pop(), formula_list.pop())
+    while len(formula_list) > 0:
+        temp_formula = formula
+        formula = Formula("&", temp_formula, formula_list.pop())
+    return formula
+
 
 def synthesize(variables: Sequence[str], values: Iterable[bool]) -> Formula:
     """Synthesizes a propositional formula in DNF over the given variable names,
@@ -321,24 +346,33 @@ def synthesize(variables: Sequence[str], values: Iterable[bool]) -> Formula:
     """
     assert len(variables) > 0
     # Task 2.7
+
+    # Since _synthesize_for_model gives us a formula that holds only in one model, and
+    # since we want a formula that holds in only the models determined by "values", we:
+    #   (i) go through each model whose value is True and use _synthesize_for_model to
+    #       get a formula that is true in that model and that model only,
+    #   (ii) build the disjunction of all of the formulas achieved in (i).
+
+    # (i) Get a formula for each model whose value is True.
     models = list(all_models(variables))
-    formList = []
-    for valIndex in range(len(values)):
-        if values[valIndex]:
-            formList.append(_synthesize_for_model(models[valIndex]))
-    if len(formList) == 0:
-        return Formula('|', Formula('&', Formula(variables[0]), Formula('~', Formula(variables[0]))), Formula('&', Formula(variables[0]), Formula('~', Formula(variables[0]))))
-    elif len(formList) == 1:
-        return formList[0]
-    else:
-        form = Formula('|', formList[0], formList[1])
-        formList.pop(0)
-        formList.pop(0)
-        while len(formList) != 0:
-            tempForm = form
-            form = Formula('|', tempForm, formList[0])
-            formList.pop(0)
-        return form
+    formula_list = []
+    for i in range(len(values)):
+        if values[i]:
+            formula_list.append(_synthesize_for_model(models[i]))
+
+    # (ii) Form the disjunction of all of the formulas achieved in (i).
+    if len(formula_list) == 0:
+        # If values is always False, we return a contradiction.
+        return Formula("&", Formula(variables[0]), Formula("~", Formula(variables[0])))
+    elif len(formula_list) == 1:
+        return formula_list[0]
+
+    formula = Formula("|", formula_list.pop(), formula_list.pop())
+    while len(formula_list) != 0:
+        temp_formula = formula
+        formula = Formula("|", temp_formula, formula_list.pop())
+    return formula
+
 
 def _synthesize_for_all_except_model(model: Model) -> Formula:
     """Synthesizes a propositional formula in the form of a single disjunctive
@@ -355,23 +389,24 @@ def _synthesize_for_all_except_model(model: Model) -> Formula:
     assert is_model(model)
     assert len(model.keys()) > 0
     # Optional Task 2.8
-    formulaList = []
-    for var in model:
-        if model[var]:
-            formulaList.append(Formula('~', Formula(var)))
+
+    # For each variable in the model, we add it or its negation to a list of formulas.
+    formula_list = []
+    for variable in model:
+        if model[variable]:
+            formula_list.append(Formula("~", Formula(variable)))
         else:
-            formulaList.append(Formula(var))
-    if len(formulaList) == 1:
-        return formulaList[0]
-    else:
-        form = Formula('|', formulaList[0], formulaList[1])
-        formulaList.pop(0)
-        formulaList.pop(0)
-        while len(formulaList) > 0:
-            tempForm = form
-            form = Formula('|', tempForm, formulaList[0])
-            formulaList.pop()
-        return form
+            formula_list.append(Formula(variable))
+    
+    # "or" all of the formulas together.
+    if len(formula_list) == 1:
+        return formula_list[0]
+    formula = Formula("|", formula_list.pop(), formula_list.pop())
+    while len(formula_list) > 0:
+        temp_formula = formula
+        formula = Formula("|", temp_formula, formula_list.pop())
+    return formula
+
 
 def synthesize_cnf(variables: Sequence[str], values: Iterable[bool]) -> Formula:
     """Synthesizes a propositional formula in CNF over the given variable names,
@@ -397,24 +432,26 @@ def synthesize_cnf(variables: Sequence[str], values: Iterable[bool]) -> Formula:
     """
     assert len(variables) > 0
     # Optional Task 2.9
+
+    # (i) Get a formula for each model whose value is False
     models = list(all_models(variables))
-    formList = []
-    for valIndex in range(len(values)):
-        if not values[valIndex]:
-            formList.append(_synthesize_for_all_except_model(models[valIndex]))
-    if len(formList) == 0:
-        return Formula('|', Formula(variables[0]), Formula('~', Formula(variables[0])))
-    elif len(formList) == 1:
-        return formList[0]
-    else:
-        form = Formula('&', formList[0], formList[1])
-        formList.pop(0)
-        formList.pop(0)
-        while len(formList) != 0:
-            tempForm = form
-            form = Formula('&', tempForm, formList[0])
-            formList.pop(0)
-        return form
+    formula_list = []
+    for i in range(len(values)):
+        if not values[i]:
+            formula_list.append(_synthesize_for_all_except_model(models[i]))
+    
+    # (ii) Form the conjunction of all of the formulas achieved in (i)
+    if len(formula_list) == 0:
+        # If values is always True, we return a tautology.
+        return Formula("|", Formula(variables[0]), Formula("~", Formula(variables[0])))
+    elif len(formula_list) == 1:
+        return formula_list[0]
+    formula = Formula("&", formula_list.pop(), formula_list.pop())
+    while len(formula_list) != 0:
+        temp_formula = formula
+        formula = Formula("&", temp_formula, formula_list.pop())
+    return formula
+
 
 def evaluate_inference(rule: InferenceRule, model: Model) -> bool:
     """Checks if the given inference rule holds in the given model.
@@ -444,6 +481,7 @@ def evaluate_inference(rule: InferenceRule, model: Model) -> bool:
             assumptionsHold = False
             break
     return not assumptionsHold or evaluate(rule.conclusion, model)
+
 
 def is_sound_inference(rule: InferenceRule) -> bool:
     """Checks if the given inference rule is sound, i.e., whether its

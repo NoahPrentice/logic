@@ -15,7 +15,8 @@ from propositions.semantics import *
 #: A graph on a vertex set of the form ``(1,``...\ ``,``\ `n_vertices`\ ``)``,
 #: represented by the number of vertices `n_vertices` and a set of edges over
 #: the vertices.
-Graph = Tuple[int, AbstractSet[Tuple[int, int]]] 
+Graph = Tuple[int, AbstractSet[Tuple[int, int]]]
+
 
 def is_graph(graph: Graph) -> bool:
     """Checks if the given data structure is a valid representation of a graph.
@@ -35,6 +36,7 @@ def is_graph(graph: Graph) -> bool:
         if edge[0] == edge[1]:
             return False
     return True
+
 
 def is_valid_3coloring(graph: Graph, coloring: Mapping[int, int]) -> bool:
     """Checks whether the given coloring is a valid coloring of the given graph
@@ -59,13 +61,14 @@ def is_valid_3coloring(graph: Graph, coloring: Mapping[int, int]) -> bool:
             return False
     return True
 
+
 def graph3coloring_to_formula(graph: Graph) -> Formula:
     """Efficiently reduces the 3-coloring problem of the given graph into a
     satisfiability problem.
 
     Parameters:
         graph: graph whose 3-coloring problem to reduce.
-       
+
     Returns:
         A propositional formula that is satisfiable if and only if the given
         graph is 3-colorable.
@@ -73,8 +76,33 @@ def graph3coloring_to_formula(graph: Graph) -> Formula:
     assert is_graph(graph)
     # Optional Task 2.10a
 
-def assignment_to_3coloring(graph: Graph, assignment: Model) -> \
-        Mapping[int, int]:
+    # (i) Create a list of formulas for each possible coloring of the vertices
+    number_of_vertices, edges = graph
+    formula_list = []
+    for vertex_number in range(1, number_of_vertices + 1):
+        v = str(vertex_number)
+        formula_list.append(Formula.parse("(x" + v + "1|(x" + v + "2|x" + v + "3))"))
+    
+    # (ii) Add formulas constraining the color of neighboring vertices
+    for edge in edges:
+        v1, v2 = str(edge[0]), str(edge[1])
+        formula_list.append(Formula.parse("~(x" + v1 + "1&x" + v2 + "1)"))
+        formula_list.append(Formula.parse("~(x" + v1 + "2&x" + v2 + "2)"))
+        formula_list.append(Formula.parse("~(x" + v1 + "3&x" + v2 + "3)"))
+    
+    # (iii) Conjoin the formulas together
+    if len(formula_list) == 0:
+            return Formula("x" + str(number_of_vertices) + "1")
+    if len(formula_list) == 1:
+        return formula_list[0]
+    formula = Formula("&", formula_list.pop(), formula_list.pop())
+    while len(formula_list) > 0:
+        temp_formula = formula
+        formula = Formula("&", temp_formula, formula_list.pop())
+    return formula
+
+
+def assignment_to_3coloring(graph: Graph, assignment: Model) -> Mapping[int, int]:
     """Efficiently transforms an assignment to the formula corresponding to the
     3-coloring problem of the given graph, to a 3-coloring of the given graph so
     that the 3-coloring is valid if and only if the given assignment is
@@ -94,6 +122,18 @@ def assignment_to_3coloring(graph: Graph, assignment: Model) -> \
     formula = graph3coloring_to_formula(graph)
     assert evaluate(formula, assignment)
     # Optional Task 2.10b
+
+    coloring = dict()
+    for variable in assignment:
+        if assignment[variable]:
+            # Each variable in assignment is xvc, where v is the vertex number and c is
+            # the color of the vertex. If assignment[variable] is true, then v is colored
+            # as c, so we add it to our dict.
+            v = int(variable[1:-1])
+            c = int(variable[-1])
+            coloring[v] = c
+    return coloring
+
 
 def tricolor_graph(graph: Graph) -> Union[Mapping[int, int], None]:
     """Computes a 3-coloring of the given graph.
