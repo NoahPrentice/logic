@@ -302,7 +302,7 @@ class Formula:
         elif is_constant(string[0]) or is_variable(string[0]):
             # The logic of parsing constants and variables is outsourced to a new helper
             # function I made. It is located above _parse_prefix.
-            variable, rest =  Formula.NEW_parse_constant_or_variable(string)
+            variable, rest = Formula.NEW_parse_constant_or_variable(string)
             return (Formula(variable), rest)
 
         # Recursive case: string starts with a ~ or (
@@ -428,7 +428,7 @@ class Formula:
             elif is_unary(string[0]):
                 operand, rest = polish_prefix(string[1:])
                 return (Formula(string[0], operand), rest)
-            
+
             # For binary operators, we try to parse the operator and then recurse to find
             # the operands. We check for errors at every step, just to be safe :-)
             operator, rest = Formula.NEW_parse_binary_operator(string)
@@ -438,7 +438,7 @@ class Formula:
             left, rest = polish_prefix(rest)
             if left is None:
                 return (left, rest)
-            
+
             right, rest = polish_prefix(rest)
             if right is None:
                 return (right, rest)
@@ -473,9 +473,13 @@ class Formula:
         for variable in substitution_map:
             assert is_variable(variable)
         # Task 3.3
+
+        # Base case
         if is_variable(self.root):
             if self.root in substitution_map:
                 return substitution_map[self.root]
+
+        # Recursive case
         elif is_unary(self.root):
             return Formula(self.root, self.first.substitute_variables(substitution_map))
         elif is_binary(self.root):
@@ -513,39 +517,25 @@ class Formula:
             assert is_constant(operator) or is_unary(operator) or is_binary(operator)
             assert substitution_map[operator].variables().issubset({"p", "q"})
         # Task 3.4
-        if is_constant(self.root):
-            # If our root is a constant, check if it is mapped to something.
-            if self.root in substitution_map:  # If it is, replace it.
-                return substitution_map[self.root]
-        elif is_unary(self.root):
-            # If our root is unary, we check if it is mapped to something.
+
+        # Base case
+        if is_constant(self.root) and self.root in substitution_map:
+            return substitution_map[self.root]
+
+        # Recursive case
+        if is_unary(self.root):
+            new_first = self.first.substitute_operators(substitution_map)
             if self.root in substitution_map:
-                # If it is, we need to replace both the root and the object that the root is operating on.
                 return substitution_map[self.root].substitute_variables(
-                    {"p": self.first.substitute_operators(substitution_map)}
+                    {"p": new_first}
                 )
-                # Of course, if the root appears in the mapping, it is mapped to a formula in terms of 'p', so we need to replace 'p' with the object.
-            else:
-                # Otherwise, we just need to replace the object.
-                return Formula(
-                    self.root, self.first.substitute_operators(substitution_map)
-                )  #
+            return Formula(self.root, new_first)
         elif is_binary(self.root):
-            # Similarly, for binary operators, we need to replace both objects (both conjuncts/disjuncts, etc.) and, possibly, the operator itself.
+            new_first = self.first.substitute_operators(substitution_map)
+            new_second = self.second.substitute_operators(substitution_map)
             if self.root in substitution_map:
-                # If we need to replace the operator itself, we (1) replace the first and second objects, and then (2) replace the operator.
-                # Again, we have to be careful because the mapping uses 'p' and 'q', so we need to replace those.
                 return substitution_map[self.root].substitute_variables(
-                    {
-                        "p": self.first.substitute_operators(substitution_map),
-                        "q": self.second.substitute_operators(substitution_map),
-                    }
+                    {"p": new_first, "q": new_second}
                 )
-            else:
-                # If we don't, we can just replace the two objects.
-                return Formula(
-                    self.root,
-                    self.first.substitute_operators(substitution_map),
-                    self.second.substitute_operators(substitution_map),
-                )
+            return Formula(self.root, new_first, new_second)
         return self
