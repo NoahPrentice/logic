@@ -7,8 +7,17 @@
 """Proofs by deduction in Propositional Logic."""
 
 from __future__ import annotations
-from typing import AbstractSet, FrozenSet, List, Mapping, Optional, Sequence, \
-                   Set, Tuple, Union
+from typing import (
+    AbstractSet,
+    FrozenSet,
+    List,
+    Mapping,
+    Optional,
+    Sequence,
+    Set,
+    Tuple,
+    Union,
+)
 
 from logic_utils import frozen, memoized_parameterless_method
 
@@ -16,6 +25,7 @@ from propositions.syntax import *
 
 #: A mapping from variable names to formulas.
 SpecializationMap = Mapping[str, Formula]
+
 
 @frozen
 class InferenceRule:
@@ -28,6 +38,7 @@ class InferenceRule:
             the assumptions of the rule.
         conclusion (`~propositions.syntax.Formula`): the conclusion of the rule.
     """
+
     assumptions: Tuple[Formula, ...]
     conclusion: Formula
 
@@ -48,8 +59,13 @@ class InferenceRule:
         Returns:
             A string representation of the current inference rule.
         """
-        return str([str(assumption) for assumption in self.assumptions]) + \
-               ' ==> ' + "'" + str(self.conclusion) + "'"
+        return (
+            str([str(assumption) for assumption in self.assumptions])
+            + " ==> "
+            + "'"
+            + str(self.conclusion)
+            + "'"
+        )
 
     def __eq__(self, other: object) -> bool:
         """Compares the current inference rule with the given one.
@@ -61,9 +77,11 @@ class InferenceRule:
             ``True`` if the given object is an `InferenceRule` object that
             equals the current inference rule, ``False`` otherwise.
         """
-        return isinstance(other, InferenceRule) and \
-               self.assumptions == other.assumptions and \
-               self.conclusion == other.conclusion
+        return (
+            isinstance(other, InferenceRule)
+            and self.assumptions == other.assumptions
+            and self.conclusion == other.conclusion
+        )
 
     def __ne__(self, other: object) -> bool:
         """Compares the current inference rule with the given one.
@@ -80,7 +98,7 @@ class InferenceRule:
 
     def __hash__(self) -> int:
         return hash(str(self))
-        
+
     def variables(self) -> Set[str]:
         """Finds all variable names in the current inference rule.
 
@@ -89,15 +107,14 @@ class InferenceRule:
             conclusion of the current inference rule.
         """
         # Task 4.1
+
         variables = set()
         for assumption in self.assumptions:
             variables.update(assumption.variables())
         variables.update(self.conclusion.variables())
         return variables
 
-
-    def specialize(self, specialization_map: SpecializationMap) -> \
-            InferenceRule:
+    def specialize(self, specialization_map: SpecializationMap) -> InferenceRule:
         """Specializes the current inference rule by simultaneously substituting
         each variable name `v` that is a key in `specialization_map` with the
         formula `specialization_map[v]`.
@@ -108,20 +125,23 @@ class InferenceRule:
 
         Returns:
             The resulting inference rule.
-        """        
+        """
         for variable in specialization_map:
             assert is_variable(variable)
         # Task 4.4
+
         assumptions = []
         for assumption in self.assumptions:
-            assumptions.append(assumption.substitute_variables(specialization_map))
-        return InferenceRule(assumptions, self.conclusion.substitute_variables(specialization_map))
+            new_assumption = assumption.substitute_variables(specialization_map)
+            assumptions.append(new_assumption)
+        new_conclusion = self.conclusion.substitute_variables(specialization_map)
+        return InferenceRule(assumptions, new_conclusion)
 
     @staticmethod
     def _merge_specialization_maps(
-            specialization_map1: Union[SpecializationMap, None],
-            specialization_map2: Union[SpecializationMap, None]) -> \
-            Union[SpecializationMap, None]:
+        specialization_map1: Union[SpecializationMap, None],
+        specialization_map2: Union[SpecializationMap, None],
+    ) -> Union[SpecializationMap, None]:
         """Merges the given specialization maps while checking their
         consistency.
 
@@ -142,21 +162,22 @@ class InferenceRule:
             for variable in specialization_map2:
                 assert is_variable(variable)
         # Task 4.5a
+
         if specialization_map1 is None or specialization_map2 is None:
             return None
-        merged_map = dict()
         for variable in specialization_map1:
-            if variable in specialization_map2:
-                if specialization_map1[variable] != specialization_map2[variable]:
-                    return None
-            else:
-                merged_map.update({variable: specialization_map1[variable]})
-        for variable in specialization_map2:
-            merged_map.update({variable: specialization_map2[variable]})
-        return merged_map
+            if (
+                variable in specialization_map2
+                and specialization_map1[variable] != specialization_map2[variable]
+            ):
+                return None
+        # If there are no conflicts, we can merge them with a dictionary union.
+        return specialization_map1 | specialization_map2
+
     @staticmethod
-    def _formula_specialization_map(general: Formula, specialization: Formula) \
-            -> Union[SpecializationMap, None]:
+    def _formula_specialization_map(
+        general: Formula, specialization: Formula
+    ) -> Union[SpecializationMap, None]:
         """Computes the minimal specialization map by which the given formula
         specializes to the given specialization.
 
@@ -169,23 +190,35 @@ class InferenceRule:
             in fact not a specialization of `general`.
         """
         # Task 4.5b
+
+        # Base case
         if is_constant(general.root):
             if general.root == specialization.root:
                 return dict()
-            else:
-                return None
+            return None
         elif is_variable(general.root):
             return {general.root: specialization}
         elif general.root != specialization.root:
             return None
-        elif is_unary(general.root):
-            return InferenceRule._formula_specialization_map(general.first, specialization.first)
-        else:
-            return InferenceRule._merge_specialization_maps(InferenceRule._formula_specialization_map(general.first, specialization.first),
-                                                            InferenceRule._formula_specialization_map(general.second, specialization.second))
 
-    def specialization_map(self, specialization: InferenceRule) -> \
-            Union[SpecializationMap, None]:
+        # Recursive case
+        # For operators, we recurse to find the maps for the operands.
+        elif is_unary(general.root):
+            return InferenceRule._formula_specialization_map(
+                general.first, specialization.first
+            )
+        # Binary operators require _merge_specialization_map.
+        first_map = InferenceRule._formula_specialization_map(
+            general.first, specialization.first
+        )
+        second_map = InferenceRule._formula_specialization_map(
+            general.second, specialization.second
+        )
+        return InferenceRule._merge_specialization_maps(first_map, second_map)
+
+    def specialization_map(
+        self, specialization: InferenceRule
+    ) -> Union[SpecializationMap, None]:
         """Computes the minimal specialization map by which the current
         inference rule specializes to the given specialization.
 
@@ -197,21 +230,21 @@ class InferenceRule:
             in fact not a specialization of the current rule.
         """
         # Task 4.5c
-        mapList = []
-        if len(self.assumptions) != len(specialization.assumptions): # To avoid index errors, I have to make sure both inference rules
-                                                                     # have the same assumptions.
-            return None
-        for i in range(len(self.assumptions)):
-            mapList.append(InferenceRule._formula_specialization_map(self.assumptions[i], specialization.assumptions[i]))
-        mapList.append(InferenceRule._formula_specialization_map(self.conclusion, specialization.conclusion))
-        if len(mapList) == 1: # To avoid index errors, I check if there's only 1 map (if there were 0 assumptions)
-            return mapList[0]
-        else:
-            finalMap = InferenceRule._merge_specialization_maps(mapList.pop(0), mapList.pop(0))
-            while len(mapList) != 0:
-                finalMap = InferenceRule._merge_specialization_maps(finalMap, mapList.pop(0))
-            return finalMap
 
+        rule_map = {}
+        if len(self.assumptions) != len(specialization.assumptions):
+            return None
+        for index in range(len(self.assumptions)):
+            assumption_map = InferenceRule._formula_specialization_map(
+                self.assumptions[index], specialization.assumptions[index]
+            )
+            rule_map = InferenceRule._merge_specialization_maps(
+                assumption_map, rule_map
+            )
+        conclusion_map = InferenceRule._formula_specialization_map(
+            self.conclusion, specialization.conclusion
+        )
+        return InferenceRule._merge_specialization_maps(conclusion_map, rule_map)
 
     def is_specialization_of(self, general: InferenceRule) -> bool:
         """Checks if the current inference rule is a specialization of the given
@@ -226,6 +259,7 @@ class InferenceRule:
         """
         return general.specialization_map(self) is not None
 
+
 @frozen
 class Proof:
     """An immutable deductive proof in Propositional Logic, comprised of a
@@ -239,13 +273,17 @@ class Proof:
             the proof.
         lines (`~typing.Tuple`\\[`Line`]): the lines of the proof.
     """
+
     statement: InferenceRule
     rules: FrozenSet[InferenceRule]
     lines: Tuple[Proof.Line, ...]
-    
-    def __init__(self, statement: InferenceRule,
-                 rules: AbstractSet[InferenceRule],
-                 lines: Sequence[Proof.Line]):
+
+    def __init__(
+        self,
+        statement: InferenceRule,
+        rules: AbstractSet[InferenceRule],
+        lines: Sequence[Proof.Line],
+    ):
         """Initializes a `Proof` from its statement, allowed inference rules,
         and lines.
 
@@ -278,13 +316,17 @@ class Proof:
                 the rule that concludes the formula, if the formula is not
                 justified as an assumption of the proof.
         """
+
         formula: Formula
         rule: Optional[InferenceRule]
         assumptions: Optional[Tuple[int, ...]]
 
-        def __init__(self, formula: Formula,
-                     rule: Optional[InferenceRule] = None,
-                     assumptions: Optional[Sequence[int]] = None):
+        def __init__(
+            self,
+            formula: Formula,
+            rule: Optional[InferenceRule] = None,
+            assumptions: Optional[Sequence[int]] = None,
+        ):
             """Initializes a `~Proof.Line` from its formula, and optionally its
             rule and numbers of justifying previous lines.
 
@@ -300,8 +342,9 @@ class Proof:
                     ``None`` if the formula is to be justified as an assumption
                     of the proof.
             """
-            assert (rule is None and assumptions is None) or \
-                   (rule is not None and assumptions is not None)
+            assert (rule is None and assumptions is None) or (
+                rule is not None and assumptions is not None
+            )
             self.formula = formula
             self.rule = rule
             if assumptions is not None:
@@ -316,12 +359,12 @@ class Proof:
             if self.rule is None:
                 return str(self.formula)
             else:
-                r = str(self.formula) + '    (Inference Rule ' + str(self.rule)
+                r = str(self.formula) + "    (Inference Rule " + str(self.rule)
                 if len(self.assumptions) == 1:
-                    r += ' on line ' + str(self.assumptions[0])
+                    r += " on line " + str(self.assumptions[0])
                 elif len(self.assumptions) > 1:
-                    r += ' on lines ' + ','.join(map(str, self.assumptions))
-                r += ')'
+                    r += " on lines " + ",".join(map(str, self.assumptions))
+                r += ")"
                 return r
 
         def is_assumption(self) -> bool:
@@ -333,19 +376,19 @@ class Proof:
                 of the proof, ``False`` otherwise.
             """
             return self.rule is None
-        
+
     def __repr__(self) -> str:
         """Computes a string representation of the current proof.
 
         Returns:
             A string representation of the current proof.
         """
-        r = 'Proof of ' + str(self.statement) + ' via inference rules:\n'
+        r = "Proof of " + str(self.statement) + " via inference rules:\n"
         for rule in self.rules:
-            r += '  ' + str(rule) + '\n'
-        r += 'Lines:\n'
+            r += "  " + str(rule) + "\n"
+        r += "Lines:\n"
         for i in range(len(self.lines)):
-            r += ('%3d) ' % i) + str(self.lines[i]) + '\n'
+            r += ("%3d) " % i) + str(self.lines[i]) + "\n"
         r += "QED\n"
         return r
 
@@ -365,18 +408,14 @@ class Proof:
         """
         assert line_number < len(self.lines)
         # Task 4.6a
-        if self.lines[line_number].rule is None: # If the line is justified as an assumption, we return None.
-            return None
-        assumptions = [] # Otherwise, we find all the assumptions of the rule by looping through the lines mentioned.
 
-        # Because self is a proof object, we need to point to its list of lines, specify which line we're talking about, and make sure we talk
-        # about the assumptions of the given line number. This "assumptions" property is a list of indices for other line numbers, not the
-        # line or its formula itself. Making sure to add neither the index, nor the line itself, but only the formula of the line, took me ages.
-        
-        for assumptionNumber in self.lines[line_number].assumptions: 
-            assumptions.append(self.lines[assumptionNumber].formula)
-            
-        return InferenceRule(assumptions, self.lines[line_number].formula) # Then we just list the assumptions and the conclusion
+        line = self.lines[line_number]
+        if line.rule is None:
+            return None
+        assumptions = [
+            self.lines[assumption].formula for assumption in line.assumptions
+        ]
+        return InferenceRule(assumptions, line.formula)
 
     def is_line_valid(self, line_number: int) -> bool:
         """Checks if the specified line validly follows from its justifications.
@@ -402,36 +441,16 @@ class Proof:
         """
         assert line_number < len(self.lines)
         # Task 4.6b
+
         line = self.lines[line_number]
-        if line.rule is None: # If the line is not justified by any rule, we check if it's an assumption.
+        if line.rule is None:
             return line.formula in self.statement.assumptions
-        else:
-            is_specialization = False # If the line is justified by a rule, we try to find a potential allowed rule that specializes to it.
-            for allowedRule in self.rules:
-                if line.rule == allowedRule:
-                    generalRule = allowedRule # If we find one, we note which rule it is and tell python we've found a potential specialization.
-                    is_specialization = True
-                    break
-            if not is_specialization: # If we didn't find a potential specialization, we know the line is not valid.
-                return False
-            else: # If we found a potential specialization, we first need to make sure it actually specializes to the rule used.
-                specificRule = self.rule_for_line(line_number)
-                specializationMap = generalRule.specialization_map(specificRule)
-                if specializationMap is None: # If it doesn't specialize to the rule used, the line is not valid.
-                    return False
-                else: # Otherwise, we have a genuine specialization.
-                    specialization = generalRule.specialize(specializationMap)
-                    if specialization.conclusion != line.formula: # For condition 1, we just check if the conclusion of the specialization is as needed.
-                        return False
-                    else: # For condition 2, we check to make sure the assumptions are the same and in the correct order
-                        for i in range(len(specialization.assumptions)):
-                            if specialization.assumptions[i] != self.lines[line.assumptions[i]].formula:
-                                return False
-                        for i in line.assumptions: # We then add in a final check to make sure we're not using a rule on later line.
-                            if i >= line_number:
-                                return False
-        return True
-        
+        return (
+            line.rule in self.rules
+            and (all(line_number > assumption for assumption in line.assumptions))
+            and self.rule_for_line(line_number).is_specialization_of(line.rule)
+        )
+
     def is_valid(self) -> bool:
         """Checks if the current proof is a valid proof of its claimed statement
         via its inference rules.
@@ -441,14 +460,16 @@ class Proof:
             statement via its inference rules, ``False`` otherwise.
         """
         # Task 4.6c
-        if len(self.lines) == 0:
-            return False
-        elif self.statement.conclusion != self.lines[-1].formula:
-            return False
-        for i in range(len(self.lines)):
-            if not self.is_line_valid(i):
-                return False
-        return True
+
+        return (
+            len(self.lines) != 0
+            and self.lines[-1].formula == self.statement.conclusion
+            and all(
+                self.is_line_valid(line_number)
+                for line_number in range(len(self.lines))
+            )
+        )
+
 
 def prove_specialization(proof: Proof, specialization: InferenceRule) -> Proof:
     """Converts the given proof of an inference rule to a proof of the given
@@ -465,17 +486,21 @@ def prove_specialization(proof: Proof, specialization: InferenceRule) -> Proof:
     assert proof.is_valid()
     assert specialization.is_specialization_of(proof.statement)
     # Task 5.1
-    map = proof.statement.specialization_map(specialization)
+
+    specialization_map = proof.statement.specialization_map(specialization)
     lines = []
     for line in proof.lines:
-        if hasattr(line, 'assumptions'):
-            lines.append(Proof.Line(line.formula.substitute_variables(map), line.rule, line.assumptions))
+        new_formula = line.formula.substitute_variables(specialization_map)
+        if line.rule is None:
+            lines.append(Proof.Line(new_formula, line.rule))
         else:
-            lines.append(Proof.Line(line.formula.substitute_variables(map), line.rule))
+            lines.append(Proof.Line(new_formula, line.rule, line.assumptions))
     return Proof(specialization, proof.rules, lines)
 
-def _inline_proof_once(main_proof: Proof, line_number: int,
-                       lemma_proof: Proof) -> Proof:
+
+def _inline_proof_once(
+    main_proof: Proof, line_number: int, lemma_proof: Proof
+) -> Proof:
     """Inlines the given proof of a "lemma" inference rule into the given proof
     that uses that "lemma" rule, eliminating the usage of (a specialization of)
     that "lemma" rule in the specified line in the latter proof.
@@ -504,81 +529,74 @@ def _inline_proof_once(main_proof: Proof, line_number: int,
     assert lemma_proof.is_valid()
     # Task 5.2a
 
-    # --- 1. Adding the Lemma's Lines ---
-    # We start by figuring out the new lines needed to replace the Lemma line.
-    # We'll need a proof specialization for this.
-    specialized_proof = prove_specialization(lemma_proof, main_proof.rule_for_line(line_number))
-    # Now when we put everything together we just need the line number indices to work out.
-    # We can start by adding the lines not affected by the change.
-    newLines = [main_proof.lines[i] for i in range(line_number)]
+    # (1) Add all of the lines of main_proof up to line_number-1, unmodified
+    main_lines = list(main_proof.lines)
+    line = main_lines[line_number]
+    new_lines = main_lines[:line_number]
 
-    # Now we add the new lines, but we want to keep track of how many lines went unaffected.
-    numberOfUnaffectedLines = len(newLines)
+    # (2) Add all of the lines of the lemma proof
+    lemma_proof = prove_specialization(
+        lemma_proof, main_proof.rule_for_line(line_number)
+    )
+    # To make this easier, we create two dicts which map the assumptions of the specified
+    # line to the inference rule and assumptions they use.
+    rule_map, assumptions_map = dict(), dict()
+    for assumption in line.assumptions:
+        assumption_line = main_lines[assumption]
+        rule_map[assumption_line.formula] = assumption_line.rule
+        if assumption_line.rule is not None:
+            assumptions_map[assumption_line.formula] = assumption_line.assumptions
 
-    # Let's go ahead and jump into the main loop, adding lines from the Lemma's proof.
-    for specializedProofLineNumber in range(len(specialized_proof.lines)):
-        specializedProofLine = specialized_proof.lines[specializedProofLineNumber]
-        # If a line in the Lemma proof had no rule, then it was an assumption of the Lemma.
-        # This means one of our previous lines will be that assumption, so we want to
-        # reference it instead of adding it with no rule at all. 
-        if specializedProofLine.rule is not None:
-            # Now we have a line that references other lines in the Lemma proof. So we need
-            # to find where in the proof we stated the formula that we're looking for.
-            newAssumptions = []
-            # We go through our line's assumptions one at a time.
-            for assumption in specializedProofLine.assumptions:
-                # And look through each previous line
-                for previousLineNumber in range(len(newLines)):
-                    previousLine = newLines[previousLineNumber]
-                    # to check if it has the right formula.
-                    if previousLine.formula == specialized_proof.lines[assumption].formula:
-                        # If it does, we can reference it and stop looking.
-                        newAssumptions.append(previousLineNumber)
-                        break
-            # Once all of a line's assumptions have been changed, we can add it.
-            newLines.append(Proof.Line(specializedProofLine.formula, specializedProofLine.rule, newAssumptions))
-    
-    # --- 2. Adding the Remaining Lines ---
+    # Each line of lemma_proof falls into one of three cases:
+    #   (a) The line is deduced as an assumption in both proofs. In this case, we can add
+    #       the line as an assumption.
+    #   (b) The line is deduced as an assumption in the lemma proof but not in the main
+    #       one. In this case, we add the line using the inference rule from main_proof.
+    #   (c) The line is deduced via an inference rule in the lemma proof. Then we add
+    #       the line using the rule in the lemma proof, shifting its assumptions by
+    #       line_number.
+    for lemma_line in lemma_proof.lines:
+        if lemma_line.rule is None:
+            if rule_map[lemma_line.formula] is None:
+                # Case (a)
+                new_lines.append(lemma_line)
+                continue
+            # Case (b)
+            new_rule = rule_map[lemma_line.formula]
+            new_assumptions = assumptions_map[lemma_line.formula]
+            new_lines.append(Proof.Line(lemma_line.formula, new_rule, new_assumptions))
+            continue
+        # Case (c)
+        new_lines.append(
+            Proof.Line(
+                lemma_line.formula,
+                lemma_line.rule,
+                [assumption + line_number for assumption in lemma_line.assumptions],
+            )
+        )
 
-    # Now we do the same thing, but with the old lines that came after the Lemma line.
-    # We could take the same approach as in (1), where we loop through every previous line
-    # to look for the right formula. For the sake of efficiency, however, we can utilize
-    # the fact that a rule either was unaffected or was merely shifted in its line number
-    # by the number of added lines. In fact, I tried to do this for the main loop in (1), but
-    # ran into issues. 
-    
-    indexShift = len(newLines) - numberOfUnaffectedLines - 1
+    # (3) Add the remaining lines of main_proof, shifting assumptions when needed.
+    for main_line_number in range(line_number + 1, len(main_lines)):
+        main_line = main_lines[main_line_number]
 
-    for oldLineNumber in range(line_number + 1, len(main_proof.lines)):
-        oldLine = main_proof.lines[oldLineNumber]
-        if oldLine.rule is None:
-            newLines.append(oldLine)
-        else:
-            newAssumptions = []
-            for assumption in oldLine.assumptions:
-                # We check if our assumption index was affected
-                # (we get >= instead of > because of 0-index)
-                if assumption >= numberOfUnaffectedLines: 
-                    # If our assumption was affected, we shift it up.
-                    newAssumptions.append(assumption + indexShift)
-                else: 
-                    # Otherwise, it stays the same.
-                    newAssumptions.append(assumption)
-            newLines.append(Proof.Line(oldLine.formula, oldLine.rule, newAssumptions))
-    
-    # Now, the lines are ready for our new proof.
+        if main_line.rule is None:
+            new_lines.append(main_line)
+            continue
 
-    # --- 3. Finishing Up ---
+        new_assumptions = []
+        for assumption in main_line.assumptions:
+            if assumption >= line_number:
+                new_assumptions.append(assumption + len(lemma_proof.lines) - 1)
+            else:
+                new_assumptions.append(assumption)
+        new_lines.append(Proof.Line(main_line.formula, main_line.rule, new_assumptions))
 
-    # We end by updating the rules of our new proof.
-    # As explained in the textbook, we need the same rules as the main proof and Lemma proof.
-    newRules = [rule for rule in main_proof.rules]
-    # Then we can add the Lemma's rules
-    for rule in lemma_proof.rules:
-        newRules.append(rule)
-    
-    # And now the rules are ready for our new proof! We just have to put it all together.
-    return Proof(main_proof.statement, newRules, newLines)
+    return Proof(
+        main_proof.statement,
+        main_proof.rules.union(lemma_proof.rules),
+        tuple(new_lines),
+    )
+
 
 def inline_proof(main_proof: Proof, lemma_proof: Proof) -> Proof:
     """Inlines the given proof of a "lemma" inference rule into the given proof
@@ -601,29 +619,16 @@ def inline_proof(main_proof: Proof, lemma_proof: Proof) -> Proof:
     assert main_proof.is_valid()
     assert lemma_proof.is_valid()
     # Task 5.2b
-    
-    # First we figure out how many times we use the Lemma.
-    lemma_use_count = 0
+
+    # We use _inline_proof_once on each line where we used the lemma rule. We use a 
+    # "shift" variable to keep track of the line numbers where the lemma rule was used.
+    shift = 0
+    new_proof = main_proof
     for line_number in range(len(main_proof.lines)):
         if main_proof.lines[line_number].rule == lemma_proof.statement:
-            lemma_use_count += 1
-    # Then we start building our new proof. I do this one use of the Lemma at a time,
-    # storing the progress in the return_proof variable.
-    return_proof = main_proof
+            new_proof = _inline_proof_once(new_proof, line_number + shift, lemma_proof)
+            shift += len(lemma_proof.lines) - 1
 
-    # We'll go through the proof one use of the lemma at a time, replacing that line, and
-    # then doing it again. A while loop works well in this context. 
-    while lemma_use_count > 0:
-        for line_number in range(len(return_proof.lines)):
-            if return_proof.lines[line_number].rule == lemma_proof.statement:
-                # If we find a line that uses the lemma, we replace it, updating our return_proof,
-                # and then we start over. This is to avoid the potential problem of changing our object
-                # while we're in the process of looping through it.
-                return_proof = _inline_proof_once(return_proof, line_number, lemma_proof)
-                break
-        # Then we tell Python we've removed one use of the Lemma, and restart the while loop if need-be.
-        lemma_use_count += -1
-    # At the end, we just have to fix the rules being used.
-    return_proof_rules = set(main_proof.rules).union(set(lemma_proof.rules))
-    return_proof_rules.remove(lemma_proof.statement)
-    return Proof(return_proof.statement, return_proof_rules, return_proof.lines)
+    new_rules = set(main_proof.rules).union(set(lemma_proof.rules))
+    new_rules.remove(lemma_proof.statement)
+    return Proof(new_proof.statement, new_rules, new_proof.lines)

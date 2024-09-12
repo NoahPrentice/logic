@@ -315,27 +315,27 @@ class Formula:
 
         elif string[0] == "(" and len(string) > 1:
             # In this case, we expect a binary operator. So we
-            #   (i) recursively parse the first operand (left conjunct, disjunct, etc.),
-            #   (ii) find the operator used, and
-            #   (iii) recursively parse the second operand (right conjunct, etc.).
+            #   (1) recursively parse the first operand (left conjunct, disjunct, etc.),
+            #   (2) find the operator used, and
+            #   (3) recursively parse the second operand (right conjunct, etc.).
             # All this time, we have to be very careful with how long the string is, so
             # that we don't incur index-out-of-bound errors. This explains the frequent
             # checks on len(rest). Additionally, if any of our recursive calls yield
             # errors, we need to pass that along by returning "error".
 
-            # (i) Recursively parse the first operand
+            # (1) Recursively parse the first operand
             first_prefix, rest = Formula._parse_prefix(string[1:])
             if first_prefix is None or len(rest) == 0:
                 return error
 
-            # (ii) Find the operator
+            # (2) Find the operator
             # The logic of parsing binary operators is outsourced to a new helper
             # function I made. It is located above _parse_prefix.
             operator, rest = Formula.NEW_parse_binary_operator(rest)
             if operator is None:
                 return error
 
-            # (iii) recursively parse the second operand
+            # (3) recursively parse the second operand
             second_prefix = None
             second_prefix, rest = Formula._parse_prefix(rest)
             if second_prefix is None or len(rest) == 0:

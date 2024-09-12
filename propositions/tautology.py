@@ -16,6 +16,7 @@ from propositions.proofs import *
 from propositions.axiomatic_systems import *
 from propositions.deduction import *
 
+
 def formulas_capturing_model(model: Model) -> List[Formula]:
     """Computes the formulas that capture the given model: ``'``\ `x`\ ``'``
     for each variable name `x` that is assigned the value ``True`` in the given
@@ -35,17 +36,19 @@ def formulas_capturing_model(model: Model) -> List[Formula]:
     """
     assert is_model(model)
     # Task 6.1a
-    captureList = []
+
+    formula_list = []
     keys = list(model.keys())
     keys.sort()
     for key in keys:
         if model[key]:
-            captureList.append(Formula.parse(key))
+            formula_list.append(Formula.parse(key))
         else:
-            captureList.append(Formula('~', Formula.parse(key)))
-    return captureList
+            formula_list.append(Formula("~", Formula.parse(key)))
+    return formula_list
 
-def prove_in_model(formula: Formula, model:Model) -> Proof:
+
+def prove_in_model(formula: Formula, model: Model) -> Proof:
     """Either proves the given formula or proves its negation, from the formulas
     that capture the given model.
 
@@ -84,57 +87,62 @@ def prove_in_model(formula: Formula, model:Model) -> Proof:
         >>> proof.rules == AXIOMATIC_SYSTEM
         True
     """
-    assert formula.operators().issubset({'->', '~'})
+    assert formula.operators().issubset({"->", "~"})
     assert is_model(model)
     # Task 6.1b
 
-    # Code follows the approach outlined on p. 87.
+    # Code follows the approach outlined on p. 87. The formula, phi, we are asked to
+    # prove will fall into one of three cases:
+    #   (1) phi is a variable. This is the base case of the recursion. In this case, phi
+    #       or ~phi will be an assumption of the proof depending on if phi evaluates to
+    #       True or False in the model.
+    #   (2) phi = (phi1->phi2) for some formulas phi1 and phi2. If phi evaluates to false
+    #       in the model, then phi1 is True and phi2 is False, so we prove phi1 and ~phi2
+    #       recursively and use NI. If phi evaluates to True, then there are two subcases
+    #           (a) phi1 evaluates to False. Then we recursively prove ~phi1 and use I2.
+    #           (b) phi2 evaluates to True. Then we recursively prove phi2 and use I1.
+    #   (3) phi = ~psi for some formula psi. If psi is false, then we recursively prove
+    #       ~psi = phi. If psi is true, then we recursively prove psi and use NN to prove
+    #       ~phi = ~~psi.
 
-    # Case 1 (base case): formula = x or ~x.
-    if is_variable(formula.root):
-        if evaluate(formula, model):
-            statement = InferenceRule(formulas_capturing_model(model), formula)
-            lines = [Proof.Line(formula)]
-            return Proof(statement, AXIOMATIC_SYSTEM, lines)
-        else:
-            statement = InferenceRule(formulas_capturing_model(model), Formula('~', formula))
-            lines = [Proof.Line(Formula('~', formula))]
-            return Proof(statement, AXIOMATIC_SYSTEM, lines)
-    # Case 2: The main operator is ->.
-    elif formula.root == '->':
-        # In this case, we again check if our formula evaluates to true or false.
-        if evaluate(formula, model):
-            # If it evaluates to true, then we check if the antecedent is false
-            # or if the consequent is true. One of these must hold.
-            if not evaluate(formula.first, model):
-                # If the antecedent is false, we prove its negation recursively
-                # and use I2.
-                return prove_corollary(prove_in_model(formula.first, model), formula, I2)
-            else:
-                # If the antecedent is true, the consequent is true. So we recursively
-                # prove the consequent and use I1.
-                return prove_corollary(prove_in_model(formula.second, model), formula, I1)
-        else:
-            # If our formula evaluates to false, then we recursively prove the antecedent
-            # and the negation of the consequent.
-            antecedentProof = prove_in_model(formula.first, model)
-            consequentProof = prove_in_model(formula.second, model)
-            return combine_proofs(antecedentProof, consequentProof, Formula('~', formula), NI)
-    # Case 3: The main operator is ~.
-    else:
-        # If the formula is of the form ~P,
-        # we check if it evaluates to true or false.
-        if evaluate(formula, model):
-            # If it evaluates to true, then P evaluates to false. So we
-            # recursively prove ~P.
-            return prove_in_model(formula.first, model)
-        else:
-            # If, however, the formula evaluates to false, then P evaluates
-            # to true, so we prove P and then use double-negation.
-            return prove_corollary(prove_in_model(formula.first, model), Formula('~', formula), NN)
+    phi = formula
 
-def reduce_assumption(proof_from_affirmation: Proof,
-                      proof_from_negation: Proof) -> Proof:
+    # (1) phi is a variable (base case)
+    if is_variable(phi.root):
+        if evaluate(phi, model):
+            statement = InferenceRule(formulas_capturing_model(model), phi)
+            lines = [Proof.Line(phi)]
+            return Proof(statement, AXIOMATIC_SYSTEM, lines)
+
+        statement = InferenceRule(formulas_capturing_model(model), Formula("~", phi))
+        lines = [Proof.Line(Formula("~", phi))]
+        return Proof(statement, AXIOMATIC_SYSTEM, lines)
+
+    # (2) phi = (phi1->phi2) (recursive case)
+    elif phi.root == "->":
+        phi1 = phi.first
+        phi2 = phi.second
+        if not evaluate(phi, model):
+            phi1_proof = prove_in_model(phi1, model)
+            phi2_proof = prove_in_model(phi2, model)
+            return combine_proofs(phi1_proof, phi2_proof, Formula("~", phi), NI)
+
+        # (a) phi1 is False
+        if not evaluate(phi1, model):
+            return prove_corollary(prove_in_model(phi1, model), phi, I2)
+        # (b) phi2 is True
+        return prove_corollary(prove_in_model(phi2, model), phi, I1)
+
+    # (3) phi = ~psi (recursive case)
+    psi = phi.first
+    if evaluate(phi, model):
+        return prove_in_model(psi, model)
+    return prove_corollary(prove_in_model(psi, model), Formula("~", phi), NN)
+
+
+def reduce_assumption(
+    proof_from_affirmation: Proof, proof_from_negation: Proof
+) -> Proof:
     """Combines the two given proofs, both of the same formula `conclusion` and
     from the same assumptions except that the last assumption of the latter is
     the negation of that of the former, into a single proof of `conclusion` from
@@ -166,28 +174,33 @@ def reduce_assumption(proof_from_affirmation: Proof,
     """
     assert proof_from_affirmation.is_valid()
     assert proof_from_negation.is_valid()
-    assert proof_from_affirmation.statement.conclusion == \
-           proof_from_negation.statement.conclusion
+    assert (
+        proof_from_affirmation.statement.conclusion
+        == proof_from_negation.statement.conclusion
+    )
     assert len(proof_from_affirmation.statement.assumptions) > 0
     assert len(proof_from_negation.statement.assumptions) > 0
-    assert proof_from_affirmation.statement.assumptions[:-1] == \
-           proof_from_negation.statement.assumptions[:-1]
-    assert Formula('~', proof_from_affirmation.statement.assumptions[-1]) == \
-           proof_from_negation.statement.assumptions[-1]
+    assert (
+        proof_from_affirmation.statement.assumptions[:-1]
+        == proof_from_negation.statement.assumptions[:-1]
+    )
+    assert (
+        Formula("~", proof_from_affirmation.statement.assumptions[-1])
+        == proof_from_negation.statement.assumptions[-1]
+    )
     assert proof_from_affirmation.rules == proof_from_negation.rules
     # Task 6.2
-    # Game plan: let A be the assumption set without the last assumption, and let p be the remaining
-    # assumption in proof_from_affirmation (so ~p is the remaining assumption in proof_from_negation).
-    # Then let c be the conclusion of the proof. Proof_from_affirmation proves c from A u {p}, so the
-    # Deduction Theorem will give us a proof of (p->c) from A. Likewise, we get a proof of (~p->c)
-    # from the same set A using proof_from negation. Then the rule R with q = p and p = c will let us
-    # use combine_proofs to put them together.
+
+    # We only have to use the deduction theorem on both proofs and then use R!
     affirmation_implies_conclusion = remove_assumption(proof_from_affirmation)
     negation_implies_conclusion = remove_assumption(proof_from_negation)
-    return combine_proofs(affirmation_implies_conclusion, # Proof from affirmation
-                          negation_implies_conclusion, # Proof from negation
-                          proof_from_affirmation.statement.conclusion, # The formula to prove
-                          R)
+    return combine_proofs(
+        affirmation_implies_conclusion,
+        negation_implies_conclusion,
+        proof_from_affirmation.statement.conclusion,
+        R,
+    )
+
 
 def prove_tautology(tautology: Formula, model: Model = frozendict()) -> Proof:
     """Proves the given tautology from the formulas that capture the given
@@ -229,38 +242,27 @@ def prove_tautology(tautology: Formula, model: Model = frozendict()) -> Proof:
         True
     """
     assert is_tautology(tautology)
-    assert tautology.operators().issubset({'->', '~'})
+    assert tautology.operators().issubset({"->", "~"})
     assert is_model(model)
-    assert sorted(tautology.variables())[:len(model)] == sorted(model.keys())
+    assert sorted(tautology.variables())[: len(model)] == sorted(model.keys())
     # Task 6.3a
-    # Check if the model uses all of the tautology's variables
-    modelUsesAllTautologyVariables = True
-    for variable in tautology.variables():
-        if variable not in model.keys():
-            modelUsesAllTautologyVariables = False
-            break
-    if modelUsesAllTautologyVariables: # If it does, then we use prove_in_model.
+
+    # Base case: the model is over all the variable names in the tautology.
+    # Then we use prove_in_model.
+    if tautology.variables().issubset(model.keys()):
         return prove_in_model(tautology, model)
-    else: # Otherwise, we construct a proof with one additional variable.
-        # Start by adding all of the model's current variables to two new models.
-        affirmation_model = dict()
-        negation_model = dict()
-        for key in model.keys():
-            affirmation_model[key] = model[key]
-            negation_model[key] = model[key]
+    # Recursive case: the model is missing a variable, say x.
+    # Then we copy our model twice, adding x = True in one and x = False in the other.
+    # We recursively prove the tautology in these two models and use reduce_assumption.
+    x = sorted(tautology.variables())[len(model)]
+    true_model = dict(model)
+    false_model = dict(model)
+    true_model[x] = True
+    false_model[x] = False
 
-        # Then we add the next variable, True in one model but False in the other.
-        tautologyVariables = sorted(tautology.variables())
-        nextVariable = tautologyVariables[len(model)]
-        affirmation_model[nextVariable] = True
-        negation_model[nextVariable] = False
-
-        # Prove the tautology from each of those.
-        affirmation_proof = prove_tautology(tautology, affirmation_model)
-        negation_proof = prove_tautology(tautology, negation_model)
-
-        # Use reduce_assumption and you're done.
-        return reduce_assumption(affirmation_proof, negation_proof)
+    affirmation_proof = prove_tautology(tautology, true_model)
+    negation_proof = prove_tautology(tautology, false_model)
+    return reduce_assumption(affirmation_proof, negation_proof)
 
 
 def proof_or_counterexample(formula: Formula) -> Union[Proof, Model]:
@@ -276,17 +278,19 @@ def proof_or_counterexample(formula: Formula) -> Union[Proof, Model]:
         formula via `~propositions.axiomatic_systems.AXIOMATIC_SYSTEM`,
         otherwise a model in which the given formula does not hold.
     """
-    assert formula.operators().issubset({'->', '~'})
+    assert formula.operators().issubset({"->", "~"})
     # Task 6.3b
 
-    # Get all the models over the variables
-    formulaVariables = list(formula.variables())
-    models = list(all_models(formulaVariables))
-
+    # We could check if formula is a tautology using is_tautology() from chapter 2, but
+    # if is_taulology(model) returned False, we would have to loop through all of the
+    # models again to find one that made formula False. So, duplicating the code from
+    # is_tautology is more efficient.
+    models = list(all_models(list(formula.variables())))
     for i in range(len(models)):
-        if not evaluate(formula, models[i]): # If the formula evaluates to False anywhere, return that model
+        if not evaluate(formula, models[i]):
             return models[i]
-    return prove_tautology(formula) # If it gets through with no Falses, then it's a tautology, so we prove it.
+    return prove_tautology(formula)
+
 
 def encode_as_formula(rule: InferenceRule) -> Formula:
     """Encodes the given inference rule as a formula consisting of a chain of
@@ -308,11 +312,12 @@ def encode_as_formula(rule: InferenceRule) -> Formula:
         q
     """
     # Task 6.4a
-    # We work backwards through the assumptions, making each one the antecedent of the next implication.
+
     current_formula = rule.conclusion
-    for i in range(len(rule.assumptions)):
-        current_formula = Formula('->', rule.assumptions[-i - 1], current_formula)
+    for assumption in reversed(list(rule.assumptions)):
+        current_formula = Formula("->", assumption, current_formula)
     return current_formula
+
 
 def prove_sound_inference(rule: InferenceRule) -> Proof:
     """Proves the given sound inference rule.
@@ -327,24 +332,24 @@ def prove_sound_inference(rule: InferenceRule) -> Proof:
     """
     assert is_sound_inference(rule)
     for formula in {rule.conclusion}.union(rule.assumptions):
-        assert formula.operators().issubset({'->', '~'})
+        assert formula.operators().issubset({"->", "~"})
     # Task 6.4b
+
     tautology_proof = prove_tautology(encode_as_formula(rule))
-    statement = rule
-    rules = AXIOMATIC_SYSTEM
     lines = list(tautology_proof.lines)
     # If the rule had no assumptions, we're done.
     if len(rule.assumptions) == 0:
-        return Proof(statement, rules, lines)
+        return Proof(rule, AXIOMATIC_SYSTEM, lines)
     # Otherwise, we deal with the assumptions, which we do through a loop. At each
     # step in the loop, the last line of the proof is (A_i -> [...]) where A_i is the
     # next assumption to be removed. So, we instantiate that assumption and then use
     # MP to remove it.
     for i in range(len(rule.assumptions)):
-        lines.append(Proof.Line(rule.assumptions[i])) # Instantiate the next assumption
-        nextFormula = lines[-2].formula.second # The next line will remove the assumption
-        lines.append(Proof.Line(nextFormula, MP, [len(lines)-1, len(lines)-2])) # Add it.
-    return Proof(statement, rules, lines)
+        lines.append(Proof.Line(rule.assumptions[i]))
+        next_formula = lines[-2].formula.second
+        lines.append(Proof.Line(next_formula, MP, [len(lines) - 1, len(lines) - 2]))
+    return Proof(rule, AXIOMATIC_SYSTEM, lines)
+
 
 def model_or_inconsistency(formulas: Sequence[Formula]) -> Union[Model, Proof]:
     """Either finds a model in which all the given formulas hold, or proves
@@ -360,34 +365,29 @@ def model_or_inconsistency(formulas: Sequence[Formula]) -> Union[Model, Proof]:
         `~propositions.axiomatic_systems.AXIOMATIC_SYSTEM`.
     """
     for formula in formulas:
-        assert formula.operators().issubset({'->', '~'})
+        assert formula.operators().issubset({"->", "~"})
     # Task 6.5
-    # First, we'll conjoin all of the formulas together, both to get all of the
-    # variables used, and to check if they all evaluate to true in some model.
-    formulas_list = list(formulas)
 
-    # Conjoining the formulas
-    conjoined_formula = formulas_list[0]
-    for i in range(1, len(formulas_list)):
-        conjoined_formula = Formula('&', formulas_list[i], conjoined_formula)
-    
-    # Finding all the variables and models
-    all_variables = list(conjoined_formula.variables())
-    models = list(all_models(all_variables))
+    # (1) Conjoin all of the formulas together
+    formula_list = list(formulas)
+    conjoined_formula = formula_list[0]
+    for i in range(1, len(formula_list)):
+        conjoined_formula = Formula("&", formula_list[i], conjoined_formula)
 
-    # Testing the models
-    model_exists = False
-    the_model = {}
+    # (2) Try to return a model that makes conjoined_formula True
+    models = list(all_models(list(conjoined_formula.variables())))
+    consistent_model = {}
     for model in models:
         if evaluate(conjoined_formula, model):
-            model_exists = True
-            the_model = model
+            consistent_model = model
             break
-    if model_exists: # If a model exists, we return it.
-        return the_model
-    else: # Otherwise, we prove ~(p->p) from the formulas.
-        rule = InferenceRule(formulas, Formula.parse("~(p->p)"))
-        return prove_sound_inference(rule)
+    if consistent_model != {}:
+        return consistent_model
+
+    # (3) If (2) fails, then prove ~(p->p) from the formulas.
+    rule = InferenceRule(formulas, Formula.parse("~(p->p)"))
+    return prove_sound_inference(rule)
+
 
 def prove_in_model_full(formula: Formula, model: Model) -> Proof:
     """Either proves the given formula or proves its negation, from the formulas
@@ -429,6 +429,107 @@ def prove_in_model_full(formula: Formula, model: Model) -> Proof:
         >>> proof.rules == AXIOMATIC_SYSTEM_FULL
         True
     """
-    assert formula.operators().issubset({'T', 'F', '->', '~', '&', '|'})
+    assert formula.operators().issubset({"T", "F", "->", "~", "&", "|"})
     assert is_model(model)
     # Optional Task 6.6
+
+    # --- Code from prove_in_model ---
+    # The only change made was replacing calls to prove_in_model with prove_in_model_full
+    # and changing AXIOMATIC_SYSTEM to AXIOMATIC_SYSTEM_FULL
+
+    phi = formula
+
+    # (1) phi is a variable
+    if is_variable(phi.root):
+        if evaluate(phi, model):
+            statement = InferenceRule(formulas_capturing_model(model), phi)
+            lines = [Proof.Line(phi)]
+            return Proof(statement, AXIOMATIC_SYSTEM_FULL, lines)
+
+        statement = InferenceRule(formulas_capturing_model(model), Formula("~", phi))
+        lines = [Proof.Line(Formula("~", phi))]
+        return Proof(statement, AXIOMATIC_SYSTEM_FULL, lines)
+
+    # (2) phi = (phi1->phi2)
+    elif phi.root == "->":
+        phi1 = phi.first
+        phi2 = phi.second
+        if not evaluate(phi, model):
+            phi1_proof = prove_in_model_full(phi1, model)
+            phi2_proof = prove_in_model_full(phi2, model)
+            return combine_proofs(phi1_proof, phi2_proof, Formula("~", phi), NI)
+
+        # (a) phi1 is False
+        if not evaluate(phi1, model):
+            return prove_corollary(prove_in_model_full(phi1, model), phi, I2)
+        # (b) phi2 is True
+        return prove_corollary(prove_in_model_full(phi2, model), phi, I1)
+
+    # (3) phi = ~psi
+    elif phi.root == "~":
+        psi = phi.first
+        if evaluate(phi, model):
+            return prove_in_model_full(psi, model)
+        return prove_corollary(prove_in_model_full(psi, model), Formula("~", phi), NN)
+
+    # --- New code ---
+    # When extending task 6.1, we only need to consider 4 new cases:
+    #   (1) phi = T. Then we prove phi from additional axiom T.
+    #   (2) phi = F. Then we prove ~phi from additional axiom NF.
+    #   (3) phi = (phi1&phi2). If phi is True, then phi1 and phi2 are True, so we prove
+    #       them recursively and use additional axiom A. If phi is False, then there are
+    #       two subcases:
+    #           (a) phi1 is False. Then we recursively prove phi1 and use new axiom NA2.
+    #           (b) phi2 is False. Then we recursively prove phi2 and use new axiom NA1.
+    #   (4) phi = (phi1|phi2). If phi is False, then phi1 and phi2 are False, so we prove
+    #       ~phi1 and ~phi2 recursively and use additional axiom NO. If phi is True, then
+    #       there are two subcases:
+    #           (a) phi1 is True. Then we recursively prove phi1 and use new axiom O2.
+    #           (b) phi2 is True. Then we recursively prove phi2 and use new axiom O1.
+
+    # (4) phi = T
+    elif phi.root == "T":
+        lines = [Proof.Line(phi, T, [])]
+        statement = InferenceRule(formulas_capturing_model(model), phi)
+        return Proof(statement, AXIOMATIC_SYSTEM_FULL, lines)
+
+    # (5) phi = F
+    elif phi.root == "F":
+        lines = [Proof.Line(Formula("~", phi), NF, [])]
+        statement = InferenceRule(formulas_capturing_model(model), Formula("~", phi))
+        return Proof(statement, AXIOMATIC_SYSTEM_FULL, lines)
+
+    # (6) phi = (phi1&phi2)
+    elif phi.root == "&":
+        phi1 = phi.first
+        phi2 = phi.second
+        if evaluate(phi, model):
+            phi1_proof = prove_in_model_full(phi1, model)
+            phi2_proof = prove_in_model_full(phi2, model)
+            return combine_proofs(phi1_proof, phi2_proof, phi, A)
+
+        # (a) phi1 is False
+        if not evaluate(phi1, model):
+            phi1_proof = prove_in_model_full(phi1, model)
+            return prove_corollary(phi1_proof, Formula("~", phi), NA2)
+
+        # (b) phi2 is False
+        phi2_proof = prove_in_model_full(phi2, model)
+        return prove_corollary(phi2_proof, Formula("~", phi), NA1)
+
+    # (7) phi = (phi1|phi2)
+    phi1 = phi.first
+    phi2 = phi.second
+    if not evaluate(phi, model):
+        not_phi1_proof = prove_in_model_full(phi1, model)
+        not_phi2_proof = prove_in_model_full(phi2, model)
+        return combine_proofs(not_phi1_proof, not_phi2_proof, Formula("~", phi), NO)
+
+    # (a) phi1 is True
+    if evaluate(phi1, model):
+        phi1_proof = prove_in_model_full(phi1, model)
+        return prove_corollary(phi1_proof, phi, O2)
+
+    # (b) phi2 is True
+    phi2_proof = prove_in_model_full(phi2, model)
+    return prove_corollary(phi2_proof, phi, O1)

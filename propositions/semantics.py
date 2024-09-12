@@ -194,12 +194,12 @@ def print_truth_table(formula: Formula) -> None:
     # Task 2.4
 
     # I build the truth table into a single string. We do this in two steps:
-    #   (i) create the header of the table by adding all of the variables and the
+    #   (1) create the header of the table by adding all of the variables and the
     #       formula, separated by vertical bars, and then adding a horizontal line.
-    #   (ii) add a new line for each possible model over the variables, with the
+    #   (2) add a new line for each possible model over the variables, with the
     #       truth values of the variables and formula underneath.
 
-    # (i) Create the header of the table
+    # (1) Create the header of the table
     variables = sorted(list(formula.variables()))
     formula_string = str(formula)
     table = "|"
@@ -210,7 +210,7 @@ def print_truth_table(formula: Formula) -> None:
         table += "-" * (len(variable) + 2) + "|"
     table += "-" * (len(formula_string) + 2) + "|\n|"
 
-    # (ii) add a new line for each possible model over the variables
+    # (2) add a new line for each possible model over the variables
     models = all_models(variables)
     is_first_line = True
     for model in models:
@@ -349,18 +349,18 @@ def synthesize(variables: Sequence[str], values: Iterable[bool]) -> Formula:
 
     # Since _synthesize_for_model gives us a formula that holds only in one model, and
     # since we want a formula that holds in only the models determined by "values", we:
-    #   (i) go through each model whose value is True and use _synthesize_for_model to
+    #   (1) go through each model whose value is True and use _synthesize_for_model to
     #       get a formula that is true in that model and that model only,
-    #   (ii) build the disjunction of all of the formulas achieved in (i).
+    #   (2) build the disjunction of all of the formulas achieved in (1).
 
-    # (i) Get a formula for each model whose value is True.
+    # (1) Get a formula for each model whose value is True.
     models = list(all_models(variables))
     formula_list = []
     for i in range(len(values)):
         if values[i]:
             formula_list.append(_synthesize_for_model(models[i]))
 
-    # (ii) Form the disjunction of all of the formulas achieved in (i).
+    # (2) Form the disjunction of all of the formulas achieved in (1).
     if len(formula_list) == 0:
         # If values is always False, we return a contradiction.
         return Formula("&", Formula(variables[0]), Formula("~", Formula(variables[0])))
@@ -397,7 +397,7 @@ def _synthesize_for_all_except_model(model: Model) -> Formula:
             formula_list.append(Formula("~", Formula(variable)))
         else:
             formula_list.append(Formula(variable))
-    
+
     # "or" all of the formulas together.
     if len(formula_list) == 1:
         return formula_list[0]
@@ -433,14 +433,14 @@ def synthesize_cnf(variables: Sequence[str], values: Iterable[bool]) -> Formula:
     assert len(variables) > 0
     # Optional Task 2.9
 
-    # (i) Get a formula for each model whose value is False
+    # (1) Get a formula for each model whose value is False
     models = list(all_models(variables))
     formula_list = []
     for i in range(len(values)):
         if not values[i]:
             formula_list.append(_synthesize_for_all_except_model(models[i]))
-    
-    # (ii) Form the conjunction of all of the formulas achieved in (i)
+
+    # (2) Form the conjunction of all of the formulas achieved in (1)
     if len(formula_list) == 0:
         # If values is always True, we return a tautology.
         return Formula("|", Formula(variables[0]), Formula("~", Formula(variables[0])))
@@ -475,12 +475,15 @@ def evaluate_inference(rule: InferenceRule, model: Model) -> bool:
     """
     assert is_model(model)
     # Task 4.2
-    assumptionsHold = True
+
+    # The inference holds if and only if the assumptions do not hold or the conclusion
+    # does.
+    assumptions_hold = True
     for assumption in rule.assumptions:
-        if evaluate(assumption, model) == False:
-            assumptionsHold = False
+        if not evaluate(assumption, model):
+            assumptions_hold = False
             break
-    return not assumptionsHold or evaluate(rule.conclusion, model)
+    return not assumptions_hold or evaluate(rule.conclusion, model)
 
 
 def is_sound_inference(rule: InferenceRule) -> bool:

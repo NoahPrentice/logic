@@ -10,8 +10,10 @@ from propositions.syntax import *
 from propositions.proofs import *
 from propositions.axiomatic_systems import *
 
-def prove_corollary(antecedent_proof: Proof, consequent: Formula,
-                    conditional: InferenceRule) -> Proof:
+
+def prove_corollary(
+    antecedent_proof: Proof, consequent: Formula, conditional: InferenceRule
+) -> Proof:
     """Converts the given proof of a formula `antecedent` to a proof of the
     given formula `consequent` by using the given assumptionless inference rule
     of which ``'(``\ `antecedent`\ ``->``\ `consequent`\ ``)'`` is a
@@ -31,31 +33,36 @@ def prove_corollary(antecedent_proof: Proof, consequent: Formula,
         `~propositions.axiomatic_systems.MP` and `conditional`.
     """
     assert antecedent_proof.is_valid()
-    assert InferenceRule([],
-                         Formula('->', antecedent_proof.statement.conclusion,
-                                 consequent)).is_specialization_of(conditional)
+    assert InferenceRule(
+        [], Formula("->", antecedent_proof.statement.conclusion, consequent)
+    ).is_specialization_of(conditional)
     # Task 5.3a
-    # Copy the proof of the antecedent.
-    consequent_proof_lines = list(antecedent_proof.lines)
-    # Then add the instantiated conditional we need. No assumptions required.
-    consequent_proof_lines.append(Proof.Line(Formula('->', antecedent_proof.statement.conclusion,
-                                 consequent), conditional, []))
-    
-    # # Then we add a line to our proof concluding our consequent using modus ponens. The two assumptions are
-    # the antecedent and the instantiated conditional, the penultimate and ultimate lines.
-    consequent_proof_lines.append(Proof.Line(consequent, MP, [len(consequent_proof_lines)-2, len(consequent_proof_lines)-1]))
 
-    # Now we construct our returned proof:
-    # (1) Our statement has the same assumptions as the antecedent proof, but it concludes the consequent.
-    # (2) Our allowed rules are the antecedent proof's rules, plus modus ponens and the conditional.
-    # (3) The lines of the proof are the ones constructed above.
-    return Proof(InferenceRule(antecedent_proof.statement.assumptions, consequent),
-                    set(antecedent_proof.rules).union({conditional, MP}),
-                    consequent_proof_lines)
+    # We take a proof of phi and an inference rule which specializes to (phi->psi) and
+    # build a proof of psi.
+    phi = antecedent_proof.statement.conclusion
+    psi = consequent
+    psi_proof_lines = list(antecedent_proof.lines)
 
-def combine_proofs(antecedent1_proof: Proof, antecedent2_proof: Proof,
-                   consequent: Formula, double_conditional: InferenceRule) -> \
-        Proof:
+    # Add (phi->psi) and deduce psi.
+    psi_proof_lines.append(Proof.Line(Formula("->", phi, psi), conditional, []))
+    psi_proof_lines.append(
+        Proof.Line(psi, MP, [len(psi_proof_lines) - 2, len(psi_proof_lines) - 1])
+    )
+
+    return Proof(
+        InferenceRule(antecedent_proof.statement.assumptions, consequent),
+        antecedent_proof.rules.union({conditional, MP}),
+        psi_proof_lines,
+    )
+
+
+def combine_proofs(
+    antecedent1_proof: Proof,
+    antecedent2_proof: Proof,
+    consequent: Formula,
+    double_conditional: InferenceRule,
+) -> Proof:
     """Combines the given proofs of two formulas `antecedent1` and `antecedent2`
     into a proof of the given formula `consequent` by using the given
     assumptionless inference rule of which
@@ -79,49 +86,79 @@ def combine_proofs(antecedent1_proof: Proof, antecedent2_proof: Proof,
     """
     assert antecedent1_proof.is_valid()
     assert antecedent2_proof.is_valid()
-    assert antecedent1_proof.statement.assumptions == \
-           antecedent2_proof.statement.assumptions
+    assert (
+        antecedent1_proof.statement.assumptions
+        == antecedent2_proof.statement.assumptions
+    )
     assert antecedent1_proof.rules == antecedent2_proof.rules
     assert InferenceRule(
-        [], Formula('->', antecedent1_proof.statement.conclusion,
-        Formula('->', antecedent2_proof.statement.conclusion, consequent))
-        ).is_specialization_of(double_conditional)
+        [],
+        Formula(
+            "->",
+            antecedent1_proof.statement.conclusion,
+            Formula("->", antecedent2_proof.statement.conclusion, consequent),
+        ),
+    ).is_specialization_of(double_conditional)
     # Task 5.3b
-    # We'll start our proof of the consequent by proving the two antecedents.
-    # To begin with, then, we can just copy over the lines from the first proof.
-    consequent_proof_lines = list(antecedent1_proof.lines)
-    # Then we add the lines from our second proof, but all of our index references will be off.
-    # To solve this, we just shift all of the assumption numbers by the number of lines we already have.
-    for antecedent2_line_number in range(len(antecedent2_proof.lines)):
-        if antecedent2_proof.lines[antecedent2_line_number].rule is None:
-            consequent_proof_lines.append(antecedent2_proof.lines[antecedent2_line_number])
-        else:
-            consequent_proof_lines.append(
-                # The formula and rule stay the same.
-                Proof.Line(antecedent2_proof.lines[antecedent2_line_number].formula, 
-                antecedent2_proof.lines[antecedent2_line_number].rule, 
-                # But the assumptions get shifted by the number of lines in the first proof.
-                [x + len(antecedent1_proof.lines) for x in antecedent2_proof.lines[antecedent2_line_number].assumptions]))
-    # Then we add the instantiated double conditional, no assumptions required.
-    consequent_proof_lines.append(Proof.Line(
-        Formula('->', antecedent1_proof.statement.conclusion, Formula('->', antecedent2_proof.statement.conclusion, consequent)),
-        double_conditional, []))
-    # Now we have everything we need to deduce the conditional. Just apply MP twice!
 
-    # The following indices are used:
-    # antecedent1_statement_index = len(antecedent1_proof.lines) - 1
-    # antecedent2_statement_index = len(antecedent2_proof.lines) + len(antecedent1_proof.lines) - 1
-    # double_conditional_index = len(antecedent2_proof.lines) + len(antecedent1_proof.lines)
+    # Recall that antecedent1_proof proves phi1 and antecedent2_proof proves phi2. Then
+    # double_conditional specializes to (phi1->(phi2->psi)) where psi = consequent. So,
+    # we take 3 steps:
+    #   (1) Add the lines from antecedent1_proof and antecedent2_proof, shifting
+    #       assumptions where needed.
+    #   (2) Build the additional lines needed, (phi1->(phi2->psi)) deduced as an
+    #       assumption, (phi2->psi) deduced from MP, and psi deduced from MP.
+    #   (3) Add the new lines and return the proof.
 
-    # First application of MP: deducing (a2 -> c), a2 = antecedent2, c = consequent
-    consequent_proof_lines.append(Proof.Line(
-        Formula('->', antecedent2_proof.statement.conclusion, consequent), MP, 
-        [len(antecedent1_proof.lines) - 1, len(antecedent2_proof.lines) + len(antecedent1_proof.lines)]))
-    # Second application of MP: deducing the consequent.
-    consequent_proof_lines.append(Proof.Line(
-        consequent, MP, 
-        [len(antecedent2_proof.lines) + len(antecedent1_proof.lines) - 1, len(antecedent2_proof.lines) + len(antecedent1_proof.lines) + 1]))
-    return Proof(InferenceRule(antecedent1_proof.statement.assumptions, consequent), antecedent1_proof.rules.union({MP, double_conditional}), consequent_proof_lines)
+    # (1) Adding the lines from antecedent1_proof and antecedent2_proof
+    new_lines = list(antecedent1_proof.lines)
+
+    for line in antecedent2_proof.lines:
+        if line.rule is None:
+            new_lines.append(line)
+            continue
+        new_assumptions = (
+            assumption + len(antecedent1_proof.lines) for assumption in line.assumptions
+        )
+        new_lines.append(Proof.Line(line.formula, line.rule, new_assumptions))
+
+    # (2) Build the additional lines needed: (phi1->(phi2->psi)) which I call "double
+    # conditional line," (phi2->psi) which I call "conditional line," and psi.
+    phi1 = antecedent1_proof.statement.conclusion
+    phi1_line_number = len(antecedent1_proof.lines) - 1
+    phi2 = antecedent2_proof.statement.conclusion
+    phi2_line_number = len(new_lines) - 1
+    psi = consequent
+
+    double_conditional_line = Proof.Line(
+        Formula("->", phi1, Formula("->", phi2, psi)),
+        double_conditional,
+        tuple(),
+    )
+    double_conditional_line_number = len(new_lines)
+
+    conditional_line = Proof.Line(
+        Formula("->", phi2, psi),
+        MP,
+        (phi1_line_number, double_conditional_line_number),
+    )
+    conditional_line_number = len(new_lines) + 1
+
+    psi_line = Proof.Line(
+        psi,
+        MP,
+        (phi2_line_number, conditional_line_number),
+    )
+
+    # (3) Add the new lines and return the proof.
+    new_lines.extend([double_conditional_line, conditional_line, psi_line])
+
+    return Proof(
+        InferenceRule(antecedent1_proof.statement.assumptions, psi),
+        antecedent1_proof.rules.union({MP, double_conditional}),
+        tuple(new_lines),
+    )
+
 
 def remove_assumption(proof: Proof) -> Proof:
     """Converts the given proof of some `conclusion` formula, the last
@@ -142,79 +179,97 @@ def remove_assumption(proof: Proof) -> Proof:
         `~propositions.axiomatic_systems.I0`,
         `~propositions.axiomatic_systems.I1`, and
         `~propositions.axiomatic_systems.D`.
-    """        
+    """
     assert proof.is_valid()
     assert len(proof.statement.assumptions) > 0
     for rule in proof.rules:
         assert rule == MP or len(rule.assumptions) == 0
     # Task 5.4
-    assumption = proof.statement.assumptions[-1]
-    newLines = []
+
+    phi = proof.statement.assumptions[-1]  # The assumption being removed
+    new_lines = []
+    new_formulas = []
+
+    # As the book explains, we go through each line in the original proof with formula
+    # xi, and we add a sequence of lines letting us deduce (phi->xi), which I call "new
+    # formula." Each of these lines falls into one of three cases:
+    #   (1) xi = phi. Then the new formula is a specialization of I0.
+    #   (2) xi was deduced via MP with assumptions xj and xk = (xj->xi). Then we have
+    #       previously deduced (phi->xj) and (phi->xk), which I call "new_xj" and
+    #       "new_xk", respectively. We (a) find where we did this, (b) instantiate D, and
+    #       (c) use MP twice to deduce the new formula.
+    #   (3) xi is in A or was deduced via an assumptionless inference rule. Then we (a)
+    #       deduce xi in the same manner and (b) get the new formula from I1 and MP.
     for line_number in range(len(proof.lines)):
         line = proof.lines[line_number]
-        # --- Case 1: The Line is in A ---
-        if line.formula in proof.statement.assumptions and line.formula != assumption:
-            # Add the assumption.
-            newLines.append(Proof.Line(line.formula))
-            # Instantiate I1.
-            newLines.append(Proof.Line(Formula('->', line.formula, Formula('->', assumption, line.formula)), I1, []))
-            # Use MP.
-            newLines.append(Proof.Line(Formula('->', assumption, line.formula), MP, [len(newLines) - 2, len(newLines) - 1]))
+        xi = line.formula
+        new_formula = Formula("->", phi, xi)
 
-        # --- Case 2: The Line is the Assumption ---
-        elif line.formula == assumption:
-            # Instantiate I0 using the assumption
-            newLines.append(Proof.Line(Formula('->', assumption, assumption), I0, []))
+        # (1) xi = phi
+        if xi == phi:
+            I0_formula = Formula("->", phi, phi)
+            new_formulas.append(I0_formula)
+            new_lines.append(Proof.Line(I0_formula, I0, []))
 
-        # --- Case 3: The Line is Deduced via MP ---
+        # (2) xi was deduced via MP
         elif line.rule == MP:
-            # Let a be our assumption, xi the current line's formula, and xj and xk = (xj->xi) the formulae used as 
-            # the assumptions of MP. (xj = line.assumptions[0], xk = line.assumptions[1]). We know we have previously
-            # deduced (a -> xj) and (a -> xk). We instantiate D to get ((a->(xj->xi))->((a->xj)->(a->xi))). This is
-            # the same as ((a->xk)->((a->xj)->(a->xi))). So we can use the fact that we've previously deduced
-            # (a->xk) and (a->xj). First, though, we need to find (a->xk) and (a->xj).
-            xi = line.formula
+            # (a) Find where we deduced new_xj and new_xk
             xj = proof.lines[line.assumptions[0]].formula
+            new_xj = Formula("->", phi, xj)
             xk = proof.lines[line.assumptions[1]].formula
-            xjIndex, xkIndex = -1, -1
-            for previousLineNumber in range(len(newLines)):
-                # Check if a previous line has formula (a->xj).
-                if newLines[previousLineNumber].formula == Formula('->', assumption, xj):
-                    xjIndex = previousLineNumber
-                # Check for (a->xk).
-                elif newLines[previousLineNumber].formula == Formula('->', assumption, xk):
-                    xkIndex = previousLineNumber
-            # Instantiate D (with p = a, q = xj, r = xi) getting ((a->xk)->((a->xj)->(a->xi))).
-            newLines.append(Proof.Line(
-                D.conclusion.substitute_variables({'p': assumption, 'q': xj, 'r': xi}),
-                D, []))
-            # First application of MP: deduce ((a->xj)->(a->xi)) from (a->xk) and instantiation of D.
-            newLines.append(Proof.Line(
-                D.conclusion.second.substitute_variables({'p': assumption, 'q': xj, 'r': xi}),
-                MP, [xkIndex, len(newLines) - 1]))
-            # Second application of MP: deduce (a->xi) from previous line and (a->xj).
-            newLines.append(Proof.Line(
-                Formula('->', assumption, xi), MP, [xjIndex, len(newLines) - 1]))
-    
-        # --- Case 4: The Line is Deduced via Some Other Rule ---
-        else:
-            # Then, as the book explains, the rule must have had no assumptions. So we can do essentially the same thing as Case 1.
-            # Add the line as is.
-            newLines.append(Proof.Line(line.formula, line.rule, []))
-            # Instantiate I1.
-            newLines.append(Proof.Line(Formula('->', line.formula, Formula('->', assumption, line.formula)), I1, []))
-            # Use MP.
-            newLines.append(Proof.Line(Formula('->', assumption, line.formula), MP, [len(newLines) - 2, len(newLines) - 1]))
-    
-    # Now the lines are complete, so we just have to put it together into a new Proof.
-    return Proof(
-        InferenceRule([proof.statement.assumptions[i] for i in range(len(proof.statement.assumptions) - 1)], 
-                      Formula('->', assumption, proof.lines[-1].formula)), 
-        proof.rules.union({MP, I0, I1, D}), newLines)
+            new_xk = Formula("->", phi, xk)
 
-def prove_from_opposites(proof_of_affirmation: Proof,
-                         proof_of_negation: Proof, conclusion: Formula) -> \
-        Proof:
+            new_xj_line_number = new_formulas.index(new_xj)
+            new_xk_line_number = new_formulas.index(new_xk)
+
+            # (b) Instantiate D: ((phi->xk)->((phi->xj)->(phi->xi)))
+            D_formula = D.conclusion.substitute_variables({"p": phi, "q": xj, "r": xi})
+            new_formulas.append(D_formula)
+            new_lines.append(Proof.Line(D_formula, D, []))
+
+            # (c) Use MP twice
+            new_formulas.append(D_formula.second)
+            new_lines.append(
+                Proof.Line(
+                    D_formula.second, MP, [new_xk_line_number, len(new_lines) - 1]
+                )
+            )
+
+            new_formulas.append(new_formula)
+            new_lines.append(
+                Proof.Line(new_formula, MP, [new_xj_line_number, len(new_lines) - 1])
+            )
+
+        # (3) xi is in A or was deduced via an assumptionless inference rule
+        else:
+            # (a) Deduce xi in the same manner
+            new_formulas.append(xi)
+            new_lines.append(line)
+
+            # (b) Get the new formula from I1 and MP
+            I1_formula = Formula("->", xi, Formula("->", phi, xi))
+            new_formulas.append(I1_formula)
+            new_lines.append(Proof.Line(I1_formula, I1, []))
+
+            new_formulas.append(new_formula)
+            new_lines.append(
+                Proof.Line(new_formula, MP, [len(new_lines) - 2, len(new_lines) - 1])
+            )
+
+    # Once we're done, we build the new proof.
+    new_assumptions = [
+        proof.statement.assumptions[i]
+        for i in range(len(proof.statement.assumptions) - 1)
+    ]
+    new_statement = InferenceRule(
+        new_assumptions, Formula("->", phi, proof.statement.conclusion)
+    )
+    return Proof(new_statement, proof.rules.union({MP, I0, I1, D}), new_lines)
+
+
+def prove_from_opposites(
+    proof_of_affirmation: Proof, proof_of_negation: Proof, conclusion: Formula
+) -> Proof:
     """Combines the given proofs of a formula `affirmation` and its negation
     ``'~``\ `affirmation`\ ``'`` into a proof of the given formula.
 
@@ -232,15 +287,19 @@ def prove_from_opposites(proof_of_affirmation: Proof,
     """
     assert proof_of_affirmation.is_valid()
     assert proof_of_negation.is_valid()
-    assert proof_of_affirmation.statement.assumptions == \
-           proof_of_negation.statement.assumptions
-    assert Formula('~', proof_of_affirmation.statement.conclusion) == \
-           proof_of_negation.statement.conclusion
+    assert (
+        proof_of_affirmation.statement.assumptions
+        == proof_of_negation.statement.assumptions
+    )
+    assert (
+        Formula("~", proof_of_affirmation.statement.conclusion)
+        == proof_of_negation.statement.conclusion
+    )
     assert proof_of_affirmation.rules == proof_of_negation.rules
     # Task 5.6
-    # Explosion time!
+
     return combine_proofs(proof_of_negation, proof_of_affirmation, conclusion, I2)
-    # What a nice, refreshing result!
+
 
 def prove_by_way_of_contradiction(proof: Proof) -> Proof:
     """Converts the given proof of ``'~(p->p)'``, the last assumption of which
@@ -263,30 +322,42 @@ def prove_by_way_of_contradiction(proof: Proof) -> Proof:
         `~propositions.axiomatic_systems.N`.
     """
     assert proof.is_valid()
-    assert proof.statement.conclusion == Formula.parse('~(p->p)')
+    assert proof.statement.conclusion == Formula.parse("~(p->p)")
     assert len(proof.statement.assumptions) > 0
-    assert proof.statement.assumptions[-1].root == '~'
+    assert proof.statement.assumptions[-1].root == "~"
     for rule in proof.rules:
         assert rule == MP or len(rule.assumptions) == 0
     # Task 5.7
-    pp = Formula.parse('(p->p)')
-    f = proof.statement.assumptions[-1].first
-    # We have a proof with assumption ~f and conclusion ~(p->p). So we can use
-    # the Deduction Theorem to turn it into a proof of (~f -> ~(p->p)). 
-    Lines = list(remove_assumption(proof).lines)
 
-    # Then, we instantiate N (q = f, p = (p->p)) to get ((~f->~(p->p))->((p->p)->f)).
-    Lines.append(Proof.Line(N.conclusion.substitute_variables({'q' : f, 'p' : pp}), N, []))
+    # We are given a proof with assumptions Au{~phi} and conclusion ~(p->p). So, we
+    #   (1) use the deduction theorem to obtain a proof of (~phi->~(p->p)) from A,
+    #   (2) instantiate I0 to get (p->p), and
+    #   (3) instantiate N to get ((~phi->~(p->p))->((p->p)->phi)) and use MP twice with
+    #       our results from (1) and (2).
 
-    # We use MP once to get ((p->p)->f):
-    Lines.append(Proof.Line(Formula('->', pp, f), MP, [len(Lines)-2, len(Lines)-1]))
+    p_implies_p = Formula.parse("(p->p)")
+    phi = proof.statement.assumptions[-1].first
+    A = list(proof.statement.assumptions)
+    A.remove(proof.statement.assumptions[-1])
 
-    # Finally, the axiom I0 = (p->p) with MP deduces f.
-    Lines.append(Proof.Line(pp, I0, []))
-    Lines.append(Proof.Line(f, MP, [len(Lines)-1, len(Lines)-2]))
+    # (1) Use the deduction theorem to prove (~phi->~(p->p))
+    lines = list(remove_assumption(proof).lines)
 
-    # That finishes the lines, let's put it all together!
-    return Proof(InferenceRule([proof.statement.assumptions[i] for i in range(len(proof.statement.assumptions)-1)], f), 
-                 proof.rules.union({MP, I0, I1, D, N}), Lines)
-    # What an incredibly cool result! I had no idea that you could formally prove like this that contradictions work.
-    # Probably my favorite result from the book so far.
+    # (2) Instantiate I0 to get (p->p)
+    lines.append(Proof.Line(p_implies_p, I0, []))
+
+    # (3) Instantiate N to get ((~phi->~(p->p))->((p->p)->phi)) and use MP twice
+    lines.append(
+        Proof.Line(
+            N.conclusion.substitute_variables({"q": phi, "p": p_implies_p}), N, []
+        )
+    )
+
+    lines.append(
+        Proof.Line(
+            Formula("->", p_implies_p, phi), MP, [len(lines) - 3, len(lines) - 1]
+        )
+    )
+    lines.append(Proof.Line(phi, MP, [len(lines) - 3, len(lines) - 1]))
+
+    return Proof(InferenceRule(A, phi), proof.rules.union({MP, I0, I1, D, N}), lines)

@@ -76,21 +76,21 @@ def graph3coloring_to_formula(graph: Graph) -> Formula:
     assert is_graph(graph)
     # Optional Task 2.10a
 
-    # (i) Create a list of formulas for each possible coloring of the vertices
+    # (1) Create a list of formulas for each possible coloring of the vertices
     number_of_vertices, edges = graph
     formula_list = []
     for vertex_number in range(1, number_of_vertices + 1):
         v = str(vertex_number)
         formula_list.append(Formula.parse("(x" + v + "1|(x" + v + "2|x" + v + "3))"))
     
-    # (ii) Add formulas constraining the color of neighboring vertices
+    # (2) Add formulas constraining the color of neighboring vertices
     for edge in edges:
         v1, v2 = str(edge[0]), str(edge[1])
         formula_list.append(Formula.parse("~(x" + v1 + "1&x" + v2 + "1)"))
         formula_list.append(Formula.parse("~(x" + v1 + "2&x" + v2 + "2)"))
         formula_list.append(Formula.parse("~(x" + v1 + "3&x" + v2 + "3)"))
     
-    # (iii) Conjoin the formulas together
+    # (3) Conjoin the formulas together
     if len(formula_list) == 0:
             return Formula("x" + str(number_of_vertices) + "1")
     if len(formula_list) == 1:

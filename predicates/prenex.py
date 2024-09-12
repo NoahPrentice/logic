@@ -282,10 +282,11 @@ def _uniquely_rename_quantified_variables(formula: Formula) -> Tuple[Formula, Pr
         Qy_psi_y = Formula(formula.root, y, psi_y)
 
         # Now we have the equivalent formula, but we need to prove the equivalence. We
-        # (i) take the proof of equivalence_of(phi(x), psi(x)), (ii) use an instance of
-        # quantification axiom 15 (for universal quantification) or 16 (for existential
-        # quantification), and (iii) deduce equivalence_of(Qx[phi(x)], Qy[psi(y)])
-        # as a tautological implication. This final equivalence is what we need.
+        #   (i) take the proof of equivalence_of(phi(x), psi(x)),
+        #   (ii) use an instance of quantification axiom 15 (for universal
+        #       quantification) or 16 (for existential quantification), and
+        #   (iii) deduce equivalence_of(Qx[phi(x)], Qy[psi(y)]) as a tautological
+        #       implication.
 
         # (i) Take the proof of equivalence_of(phi(x), psi(x))
         proof = Prover(assumptions)
