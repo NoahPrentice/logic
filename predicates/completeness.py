@@ -403,14 +403,16 @@ def model_or_inconsistency(sentences: AbstractSet[Formula]) -> Union[Model[str],
             arguments = tuple([str(argument) for argument in sentence.arguments])
             relation_interpretation.add(arguments)
         return relation_interpretation
-    
+
     relations = set()
     for sentence in sentences:
         relations.update(sentence.relations())
 
     relation_interpretations = dict()
     for relation, arity in relations:
-        relation_interpretations[relation] = interpret_relation(sentences, relation, arity)
+        relation_interpretations[relation] = interpret_relation(
+            sentences, relation, arity
+        )
 
     model = Model(universe, constant_interpretations, relation_interpretations)
 
@@ -491,7 +493,7 @@ def combine_contradictions(
     ):
         assert len(assumption.formula.free_variables()) == 0
     # Task 12.4
-    
+
     # Let phi be the extra assumption in proof_from_affirmation. We use proof by way of
     # contradiction to deduce ~phi from proof_from_affirmation, and to deduce ~~phi from
     # proof_from_negation. The conjunction of these is a contradiction.
@@ -500,10 +502,17 @@ def combine_contradictions(
     not_not_phi = Formula("~", not_phi)
 
     proof = Prover(common_assumptions)
-    not_affirmation_line_number = proof.add_proof(not_phi, prove_by_way_of_contradiction(proof_from_affirmation, phi))
-    not_negation_line_number = proof.add_proof(not_not_phi, prove_by_way_of_contradiction(proof_from_negation, not_phi))
+    not_affirmation_line_number = proof.add_proof(
+        not_phi, prove_by_way_of_contradiction(proof_from_affirmation, phi)
+    )
+    not_negation_line_number = proof.add_proof(
+        not_not_phi, prove_by_way_of_contradiction(proof_from_negation, not_phi)
+    )
 
-    proof.add_tautological_implication(Formula("&", not_phi, not_not_phi), {not_affirmation_line_number, not_negation_line_number})
+    proof.add_tautological_implication(
+        Formula("&", not_phi, not_not_phi),
+        {not_affirmation_line_number, not_negation_line_number},
+    )
     return proof.qed()
 
 
@@ -540,6 +549,24 @@ def eliminate_universal_instantiation_assumption(
     for assumption in proof.assumptions:
         assert len(assumption.formula.free_variables()) == 0
     # Task 12.5
+
+    # We suppose universal = Ax[phi(x)], and constant = c. We use proof by contradiction
+    # to prove ~phi(c) (as phi(c) is an assumption of ``proof``), and then we instantiate
+    # universal to prove phi(c). The conjunction of these is a contradiction.
+    phi = universal.statement
+    x = universal.variable
+    c = constant
+    phi_c = phi.substitute({x: Term(c)})
+    not_phi_c = Formula("~", phi_c)
+
+    new_assumptions = set(proof.assumptions).difference({Schema(phi_c)})
+    new_proof = Prover(new_assumptions)
+    
+    not_phi_c_line_number = new_proof.add_proof(not_phi_c, prove_by_way_of_contradiction(proof, phi_c))
+    universal_line_number = new_proof.add_assumption(universal)
+    phi_c_line_number = new_proof.add_universal_instantiation(phi_c, universal_line_number, c)
+    new_proof.add_tautological_implication(Formula("&", phi_c, not_phi_c), {not_phi_c_line_number, phi_c_line_number})
+    return new_proof.qed()
 
 
 def universal_closure_step(sentences: AbstractSet[Formula]) -> Set[Formula]:
