@@ -491,6 +491,20 @@ def combine_contradictions(
     ):
         assert len(assumption.formula.free_variables()) == 0
     # Task 12.4
+    
+    # Let phi be the extra assumption in proof_from_affirmation. We use proof by way of
+    # contradiction to deduce ~phi from proof_from_affirmation, and to deduce ~~phi from
+    # proof_from_negation. The conjunction of these is a contradiction.
+    phi = affirmed_assumption.formula
+    not_phi = negated_assumption.formula
+    not_not_phi = Formula("~", not_phi)
+
+    proof = Prover(common_assumptions)
+    not_affirmation_line_number = proof.add_proof(not_phi, prove_by_way_of_contradiction(proof_from_affirmation, phi))
+    not_negation_line_number = proof.add_proof(not_not_phi, prove_by_way_of_contradiction(proof_from_negation, not_phi))
+
+    proof.add_tautological_implication(Formula("&", not_phi, not_not_phi), {not_affirmation_line_number, not_negation_line_number})
+    return proof.qed()
 
 
 def eliminate_universal_instantiation_assumption(
