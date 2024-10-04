@@ -76,7 +76,8 @@ def remove_assumption(
         # Case 1: xi is phi or xi is a tautology
         if (xi == phi) or (isinstance(line, Proof.TautologyLine)):
             # deduce (phi->xi) as a tautology.
-            new_line = new_proof.add_tautology(new_form)
+            new_proof.add_tautology(new_form)
+            continue
 
         # Case 2: xi is deduced via MP
         elif isinstance(line, Proof.MPLine):
@@ -96,9 +97,10 @@ def remove_assumption(
                     new_conditional_line_number = previous_line_number
 
             # (ii) deduce (phi->xi) as a tautological implication of these.
-            new_line = new_proof.add_tautological_implication(
+            new_proof.add_tautological_implication(
                 new_form, {new_antecedent_line_number, new_conditional_line_number}
             )
+            continue
 
         # Case 3: xi is deduced via UG
         elif isinstance(line, Proof.UGLine):
@@ -129,24 +131,24 @@ def remove_assumption(
             )
 
             # (iv) deduce (phi->xi) as a tautological implication of these.
-            new_line = new_proof.add_tautological_implication(
+            new_proof.add_tautological_implication(
                 new_form,
                 {generalized_conditional_line_number, us_instantiation_line_number},
             )
+            continue
         # Case 4: xi is an (instantiated) assumption in A
-        else:
-            # (i) deduce xi as an (instantiated) assumption
-            if Schema(xi) in new_assumptions:  # Non-instantiated assumption
-                instantiated_assumption = new_proof.add_assumption(xi)
-            else:  # Instantiated assumption
-                instantiated_assumption = new_proof.add_instantiated_assumption(
-                    xi, line.assumption, line.instantiation_map
-                )
-
-            # (ii) deduce (phi->xi) as a tautological implication of xi.
-            new_line = new_proof.add_tautological_implication(
-                new_form, {instantiated_assumption}
+        # (i) deduce xi as an (instantiated) assumption
+        if Schema(xi) in new_assumptions:  # Non-instantiated assumption
+            instantiated_assumption = new_proof.add_assumption(xi)
+        else:  # Instantiated assumption
+            instantiated_assumption = new_proof.add_instantiated_assumption(
+                xi, line.assumption, line.instantiation_map
             )
+
+        # (ii) deduce (phi->xi) as a tautological implication of xi.
+        new_proof.add_tautological_implication(
+            new_form, {instantiated_assumption}
+        )
 
     return new_proof.qed()
 
