@@ -211,7 +211,7 @@ def is_existentially_closed(sentences: AbstractSet[Formula]) -> bool:
         statement = existential.statement
         variable = existential.variable
         for element in universe:
-            if statement.substitute({variable:element}) in sentences:
+            if statement.substitute({variable: element}) in sentences:
                 return True
         return False
 
@@ -222,6 +222,7 @@ def is_existentially_closed(sentences: AbstractSet[Formula]) -> bool:
         if not existential_is_closed(sentences, sentence, universe):
             return False
     return True
+
 
 def find_unsatisfied_quantifier_free_sentence(
     sentences: Container[Formula], model: Model[str], unsatisfied: Formula
@@ -263,6 +264,51 @@ def find_unsatisfied_quantifier_free_sentence(
     assert not model.evaluate_formula(unsatisfied)
     # Task 12.2
 
+    # Base case
+    if is_quantifier_free(unsatisfied):
+        return unsatisfied
+
+    # Recursive case
+    # If the unsatisfied formula is not quantifier-free, then it is of the form
+    # Qx[phi(x)] for some quantifier Q, some variable name x, and some parametrized
+    # formula phi. We consider 2 cases:
+    #   (1) Q = E (existential quantification). Then we
+    #       (a) Find an existential witness phi(c) for the original formula, which must
+    #           be unsatisfied as the original formula is.
+    #       (b) Recursively find an unsatisfied quantifier-free sentence from phi(c).
+    #   (2) Q = A (universal quantification). Then we
+    #       (a) Find a constant c that makes phi(c) false (one must exist as the
+    #           original formula is unsatisfied).
+    #       (b) Recursively find an unsatisfied quantifier-free sentence from phi(c).
+
+    Q = unsatisfied.root
+    x = unsatisfied.variable
+    phi = unsatisfied.statement
+
+    # (1) Existential quantification
+    if Q == "E":
+        # (a) Find an existential witness
+        for constant in model.universe:
+            if phi.substitute({x: Term(constant)}) in sentences:
+                c = Term(constant)
+                break
+        # (b) Recurse
+        return find_unsatisfied_quantifier_free_sentence(
+            sentences, model, phi.substitute({x: c})
+        )
+
+    # (2) Universal quantification
+
+    # (a) Find a constant c that makes phi(c) false
+    for constant in model.universe:
+        if not model.evaluate_formula(phi.substitute({x: Term(constant)})):
+            c = Term(constant)
+            break
+    # (b) Recurse
+    return find_unsatisfied_quantifier_free_sentence(
+        sentences, model, phi.substitute({x: c})
+    )
+
 
 def get_primitives(quantifier_free: Formula) -> Set[Formula]:
     """Finds all primitive subformulas of the given quantifier-free formula.
@@ -284,6 +330,15 @@ def get_primitives(quantifier_free: Formula) -> Set[Formula]:
     assert "=" not in str(quantifier_free)
     # Task 12.3a
 
+    if is_relation(quantifier_free.root):
+        return {quantifier_free}
+    elif is_unary(quantifier_free.root):
+        return get_primitives(quantifier_free.first)
+    # Binary operator
+    return get_primitives(quantifier_free.first).union(
+        get_primitives(quantifier_free.second)
+    )
+
 
 def model_or_inconsistency(sentences: AbstractSet[Formula]) -> Union[Model[str], Proof]:
     """Either finds a model in which the given closed set of prenex-normal-form
@@ -304,6 +359,94 @@ def model_or_inconsistency(sentences: AbstractSet[Formula]) -> Union[Model[str],
         assert len(sentence.functions()) == 0
         assert "=" not in str(sentence)
     # Task 12.3b
+
+    # We proceed in several steps:
+    #   (1) Build the model from the set of sentences, by
+    #       (a) getting the universe as the constant names in the sentences, and by
+    #           interpreting constants as their own names, and
+    #       (b) interpreting relations through the primatives that appear in sentences
+    #   (2) If the model is a model of the sentences, return it. Otherwise, we
+    #       (a) find a quantifier-free sentence that is unsatisfied by the model,
+    #       (b) create a proof whose assumptions are our axioms and the sentences,
+    #       (c) instantiate every sentence that is a primative or its negation, as well
+    #           as the unsatisfied formula from (a), and
+    #       (d) tautologically infer the contradiction (unsatisfied&~unsatisfied).
+
+    # (1) Build the model from the set of sentences
+
+    # (a) Get the universe and constant interpretations
+    universe = get_constants(sentences)
+    constant_interpretations = {c: c for c in universe}
+
+    # (b) Get the relation interpretations through the primatives in sentences
+
+    def interpret_relation(
+        sentences: AbstractSet[Formula], relation_name: str, arity: int
+    ) -> set[Tuple[str]]:
+        """Gets the interpretation of a single relation from the primatives that appear
+        in the given set of sentences.
+
+        Parameters:
+            sentences: set of closed sentences.
+            relation_name: name of relation to interpret
+            arity: arity of relation_name.
+
+        Returns:
+            A set of all argument-tuples which appear in a primative relation invocation
+            of the given relation in the given set of sentences. The arguments in the
+            tuples are strings.
+        """
+        relation_interpretation = set()
+        for sentence in sentences:
+            if sentence.root != relation:
+                continue
+            arguments = tuple([str(argument) for argument in sentence.arguments])
+            relation_interpretation.add(arguments)
+        return relation_interpretation
+    
+    relations = set()
+    for sentence in sentences:
+        relations.update(sentence.relations())
+
+    relation_interpretations = dict()
+    for relation, arity in relations:
+        relation_interpretations[relation] = interpret_relation(sentences, relation, arity)
+
+    model = Model(universe, constant_interpretations, relation_interpretations)
+
+    # (2) If the model is a model of the sentences, we return it
+    if model.is_model_of(sentences):
+        return model
+
+    # Otherwise, we (a) find a quantifier-free sentence that is unsatisfied
+
+    for sentence in sentences:
+        if not model.evaluate_formula(sentence):
+            unsatisfied = sentence
+            break
+    unsatisfied = find_unsatisfied_quantifier_free_sentence(
+        sentences, model, unsatisfied
+    )
+
+    # (b) Create a proof
+    proof = Prover(set(sentences).union(Prover.AXIOMS))
+
+    # (c) Instantiate all primatives or their negations, as well as ``unsatisfied``
+    primatives_in_unsatisfied = get_primitives(unsatisfied)
+    for primative in primatives_in_unsatisfied:
+        if primative in sentences:
+            proof.add_assumption(primative)
+        if Formula("~", primative) in sentences:
+            proof.add_assumption(Formula("~", primative))
+
+    unsatisfied_line_number = proof.add_assumption(unsatisfied)
+
+    # (d) Tautologically infer the contradiction (unsatisfied&~unsatisfied).
+    contradiction = Formula("&", unsatisfied, Formula("~", unsatisfied))
+    proof.add_tautological_implication(
+        contradiction, {i for i in range(len(proof._lines))}
+    )
+    return proof.qed()
 
 
 def combine_contradictions(
