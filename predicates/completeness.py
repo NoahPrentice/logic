@@ -561,11 +561,16 @@ def eliminate_universal_instantiation_assumption(
 
     new_assumptions = set(proof.assumptions).difference({Schema(phi_c)})
     new_proof = Prover(new_assumptions)
-    
-    not_phi_c_line_number = new_proof.add_proof(not_phi_c, prove_by_way_of_contradiction(proof, phi_c))
+    not_phi_c_line_number = new_proof.add_proof(
+        not_phi_c, prove_by_way_of_contradiction(proof, phi_c)
+    )
     universal_line_number = new_proof.add_assumption(universal)
-    phi_c_line_number = new_proof.add_universal_instantiation(phi_c, universal_line_number, c)
-    new_proof.add_tautological_implication(Formula("&", phi_c, not_phi_c), {not_phi_c_line_number, phi_c_line_number})
+    phi_c_line_number = new_proof.add_universal_instantiation(
+        phi_c, universal_line_number, c
+    )
+    new_proof.add_tautological_implication(
+        Formula("&", phi_c, not_phi_c), {not_phi_c_line_number, phi_c_line_number}
+    )
     return new_proof.qed()
 
 
@@ -590,6 +595,16 @@ def universal_closure_step(sentences: AbstractSet[Formula]) -> Set[Formula]:
             is_in_prenex_normal_form(sentence) and len(sentence.free_variables()) == 0
         )
     # Task 12.6
+
+    sentences = set(sentences)
+    universe = set(Term(constant) for constant in get_constants(sentences))
+    universals = [sentence for sentence in sentences if sentence.root == "A"]
+    for universal in universals:
+        for constant in universe:
+            sentences.add(
+                universal.statement.substitute({universal.variable: constant})
+            )
+    return sentences
 
 
 def replace_constant(proof: Proof, constant: str, variable: str = "zz") -> Proof:
