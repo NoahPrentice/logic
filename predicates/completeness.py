@@ -633,6 +633,70 @@ def replace_constant(proof: Proof, constant: str, variable: str = "zz") -> Proof
         assert variable not in line.formula.variables()
     # Task 12.7a
 
+    # It is simple to replace the constant in the assumptions and MP, UG, and Tautology
+    # lines: we just use Term.substitute() and Formula.substitute(). Assumption lines
+    # are harder, since they reference assumptions which have changed. We use a dict
+    # called convert_assumption to track this change in reference. Also, assumption lines
+    # require instantiation maps, so we have a function build the new map from an old one.
+    substitution_map = {constant: Term(variable)}
+
+    # Converting the assumptions. We keep track of how assumptions changed for assumption
+    # lines.
+    convert_assumption = {
+        assumption: Schema(
+            assumption.formula.substitute(substitution_map), assumption.templates
+        )
+        for assumption in proof.assumptions
+    }
+    new_assumptions = convert_assumption.values()
+
+    # We also need to convert the instantiation map of any instantiated assumption
+    def convert_instantiation_map(
+        line: Proof.AssumptionLine, substitution_map: dict
+    ) -> dict:
+        """Replaces the constants in the values of an assumption line's instantiation map.
+
+        Parameters:
+            line: assumption line whose instantiation map we substitute.
+            substitution_map: map specifying what substitution should be made.
+
+        Returns:
+            A converted version of line.instantiation_map, the values of which are
+            changed in accordance with substitution_map.
+        """
+        new_instantiation_map = dict()
+        for construct in line.instantiation_map:
+            if is_variable(construct):
+                new_instantiation_map[construct] = line.instantiation_map[construct]
+            else:
+                new_instantiation_map[construct] = line.instantiation_map[
+                    construct
+                ].substitute(substitution_map)
+        return new_instantiation_map
+
+    # Then we convert each line, one at a time.
+    new_proof = Prover(new_assumptions)
+    for line in proof.lines:
+        new_formula = line.formula.substitute(substitution_map)
+
+        if isinstance(line, Proof.TautologyLine):
+            new_proof.add_tautology(new_formula)
+        elif isinstance(line, Proof.UGLine):
+            new_proof.add_ug(new_formula, line.nonquantified_line_number)
+        elif isinstance(line, Proof.MPLine):
+            new_proof.add_mp(
+                new_formula, line.antecedent_line_number, line.conditional_line_number
+            )
+
+        else:  # Assumption line
+            new_proof.add_instantiated_assumption(
+                new_formula,
+                convert_assumption[line.assumption],
+                convert_instantiation_map(line, substitution_map),
+            )
+
+    return new_proof.qed()
+
 
 def eliminate_existential_witness_assumption(
     proof: Proof, existential: Formula, constant: str
@@ -675,6 +739,39 @@ def eliminate_existential_witness_assumption(
         assert "zz" not in line.formula.variables()
     # Task 12.7b
 
+    # We start with a proof of (phi(x) -> contradiction).
+    x = existential.variable
+    phi_x = existential.statement
+    not_phi_x = Formula("~", phi_x)
+    phi_zz = existential.statement.substitute({x: Term("zz")})
+    not_phi_zz = Formula("~", phi_zz)
+    contradiction = proof.conclusion
+
+    # Then we turn it into a proof of (phi(zz) -> contradiction) and thus ~phi(zz)
+    new_proof = Prover(proof.assumptions - {Schema(witness)})
+    zz_proof = replace_constant(proof, constant, "zz")
+    not_phi_zz_line_number = new_proof.add_proof(
+        not_phi_zz, prove_by_way_of_contradiction(zz_proof, phi_zz)
+    )
+
+    # Use some maneuvering to get ~phi(x)
+    Azz_not_phi_zz_line_number = new_proof.add_ug(
+        Formula("A", "zz", not_phi_zz), not_phi_zz_line_number
+    )
+    not_phi_x_line_number = new_proof.add_universal_instantiation(
+        not_phi_x, Azz_not_phi_zz_line_number, x
+    )
+
+    # Tautologically infer (phi(x) -> contradiction) and use ED to infer contradiction.
+    phi_x_implies_contradiction_line_number = new_proof.add_tautological_implication(
+        Formula("->", phi_x, contradiction), {not_phi_x_line_number}
+    )
+    Ex_phi_x_line_number = new_proof.add_assumption(existential)
+    new_proof.add_existential_derivation(
+        contradiction, Ex_phi_x_line_number, phi_x_implies_contradiction_line_number
+    )
+    return new_proof.qed()
+
 
 def existential_closure_step(sentences: AbstractSet[Formula]) -> Set[Formula]:
     """Augments the given sentences with an existential witness that uses a new
@@ -698,3 +795,34 @@ def existential_closure_step(sentences: AbstractSet[Formula]) -> Set[Formula]:
             is_in_prenex_normal_form(sentence) and len(sentence.free_variables()) == 0
         )
     # Task 12.8
+
+    new_sentences = set(sentences)
+    constants = get_constants(sentences)
+
+    def sentence_needs_witness(sentence: Formula) -> bool:
+        """Determines whether a given sentence needs an existential witness.
+
+        Parameters:
+            sentence: formula in prenex normal form.
+
+        Returns:
+            True if sentence is an existential with no witness in sentences. False
+            otherwise.
+        """
+        if sentence.root != "E":
+            return False
+        for constant in constants:
+            if (
+                sentence.statement.substitute({sentence.variable: Term(constant)})
+                in sentences
+            ):
+                return False
+        return True
+
+    for sentence in sentences:
+        if not sentence_needs_witness(sentence):
+            continue
+        witness_map = {sentence.variable: Term(next(fresh_constant_name_generator))}
+        witness = sentence.statement.substitute(witness_map)
+        new_sentences.add(witness)
+    return new_sentences
