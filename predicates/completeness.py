@@ -398,7 +398,7 @@ def model_or_inconsistency(sentences: AbstractSet[Formula]) -> Union[Model[str],
         """
         relation_interpretation = set()
         for sentence in sentences:
-            if sentence.root != relation:
+            if sentence.root != relation_name:
                 continue
             arguments = tuple([str(argument) for argument in sentence.arguments])
             relation_interpretation.add(arguments)
